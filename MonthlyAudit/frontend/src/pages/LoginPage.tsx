@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { ShieldCheck, Activity, FileCheck2, Lock } from "lucide-react";
 import { HeroShaderCanvas } from "../components/HeroShaderCanvas";
+import { SoftlanBrand } from "../components/SoftlanBrand";
 import { apiFetch } from "../lib/api";
 import type { UserProfile } from "../types/audit";
 
@@ -33,8 +34,14 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
 
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-  const rotateX = useSpring(useTransform(mouseY, [-300, 300], [6, -6]), { stiffness: 180, damping: 24 });
-  const rotateY = useSpring(useTransform(mouseX, [-300, 300], [-6, 6]), { stiffness: 180, damping: 24 });
+  const rotateX = useSpring(useTransform(mouseY, [-300, 300], [6, -6]), {
+    stiffness: 180,
+    damping: 24,
+  });
+  const rotateY = useSpring(useTransform(mouseX, [-300, 300], [-6, 6]), {
+    stiffness: 180,
+    damping: 24,
+  });
 
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -95,19 +102,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-7xl w-full mx-auto flex items-center justify-between"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff5a1f] to-[#b83709] flex items-center justify-center font-black text-white text-lg bloom-orange">
-            S
-          </div>
-          <div>
-            <span className="font-extrabold tracking-[0.14em] text-white text-base block leading-none">
-              SOFTLAN <span className="text-[#ff5a1f]">TI</span>
-            </span>
-            <span className="text-[10px] tracking-[0.24em] text-slate-400 uppercase">
-              Soluções em Tecnologia
-            </span>
-          </div>
-        </div>
+        <SoftlanBrand />
 
         <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-xs font-mono text-slate-300">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />

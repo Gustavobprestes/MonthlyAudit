@@ -36,24 +36,25 @@ const FRAGMENT_SHADER = `
     float aspect = uResolution.x / max(uResolution.y, 1.0);
     vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
 
-    vec2 mouseOffset = (uMouse - 0.5) * 0.25;
-    float n1 = noise(p * 3.2 + vec2(uTime * 0.08, -uTime * 0.05) + mouseOffset);
-    float n2 = noise(p * 6.5 - vec2(uTime * 0.06, uTime * 0.09));
+    vec2 mouseOffset = (uMouse - 0.5) * 0.22;
+    float n1 = noise(p * 3.0 + vec2(uTime * 0.07, -uTime * 0.04) + mouseOffset);
+    float n2 = noise(p * 5.8 - vec2(uTime * 0.05, uTime * 0.08));
     float field = n1 * 0.65 + n2 * 0.35;
 
-    float contour = abs(fract(field * 6.0) - 0.5);
-    float line = smoothstep(0.028, 0.004, contour);
+    // Onda triangular 100% contínua (elimina a linha de corte do fract)
+    float triWave = abs(2.0 * fract(field * 5.5) - 1.0);
+    float line = smoothstep(0.06, 0.008, triWave);
 
     vec3 obsidian = vec3(0.022, 0.030, 0.048);
-    vec3 slateGlow = vec3(0.08, 0.12, 0.20);
+    vec3 slateGlow = vec3(0.075, 0.115, 0.195);
     vec3 softlanOrange = vec3(1.0, 0.353, 0.122);
 
-    float distMouse = length(p - mouseOffset * 1.4);
-    float radialGlow = exp(-distMouse * 2.4);
+    float distMouse = length(p - mouseOffset * 1.3);
+    float radialGlow = exp(-distMouse * 2.3);
 
     vec3 color = mix(obsidian, slateGlow, field * 0.55);
-    color += softlanOrange * line * (0.20 + radialGlow * 0.45);
-    color += softlanOrange * radialGlow * 0.08;
+    color += softlanOrange * line * (0.22 + radialGlow * 0.42);
+    color += softlanOrange * radialGlow * 0.07;
 
     gl_FragColor = vec4(color, 1.0);
   }

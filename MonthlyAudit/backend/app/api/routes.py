@@ -42,7 +42,6 @@ async def login_with_google(body: GoogleLoginRequest, response: Response):
 
 @router.post("/auth/dev-login")
 async def login_dev_mock(response: Response):
-    """Disponível exclusivamente quando DEV_MOCK_MODE=true em ambiente local."""
     if not settings.DEV_MOCK_MODE:
         raise HTTPException(status_code=403, detail="Modo de simulação desabilitado em produção.")
     mock_user = {
@@ -75,36 +74,7 @@ async def auth_logout(response: Response):
 
 @router.get("/discovery/sources")
 async def discover_external_sources(user: dict = Depends(get_current_user)):
-    """Busca entidades do GLPI, empresas do Bitdefender e hosts de backup do Zabbix."""
-    if settings.DEV_MOCK_MODE and not settings.GLPI_APP_TOKEN:
-        return {
-            "glpi_entities": [
-                {
-                    "id": 77,
-                    "name": "4º Registro de Imóveis de Curitiba",
-                    "completename": "Softlan TI > 4º Registro de Imóveis de Curitiba",
-                },
-                {
-                    "id": 80,
-                    "name": "5º Tabelionato de Notas de Curitiba",
-                    "completename": "Softlan TI > 5º Tabelionato de Notas de Curitiba",
-                },
-                {
-                    "id": 99,
-                    "name": "Coval Automação Ltda",
-                    "completename": "Softlan TI > Coval Automação Ltda",
-                },
-            ],
-            "bitdefender_companies": [
-                {"id": "bd-001", "name": "4º Registro de Imóveis de Curitiba"},
-                {"id": "bd-002", "name": "5º Tabelionato de Notas de Curitiba"},
-            ],
-            "zabbix_hosts": [
-                {"hostid": "101", "slug": "4ri", "name": "4º Registro de Imóveis de Curitiba"},
-                {"hostid": "102", "slug": "5notas", "name": "5º Tabelionato de Notas de Curitiba"},
-            ],
-        }
-
+    """Busca simultaneamente entidades GLPI, empresas Bitdefender e hosts Zabbix."""
     glpi = GLPIService()
     bd = BitdefenderService()
     zbx = ZabbixService()
@@ -155,6 +125,41 @@ async def upsert_client_mapping(
     return new_map
 
 
+@router.put("/clients/{client_id}")
+async def update_client_mapping(
+    client_id: int,
+    payload: ClientMappingCreate,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    res = await db.execute(select(ClientMapping).where(ClientMapping.id == client_id))
+    existing = res.scalar_one_or_none()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Ecossistema não encontrado.")
+
+    for k, v in payload.model_dump().items():
+        setattr(existing, k, v)
+    await db.commit()
+    await db.refresh(existing)
+    return existing
+
+
+@router.delete("/clients/{client_id}")
+async def delete_client_mapping(
+    client_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    res = await db.execute(select(ClientMapping).where(ClientMapping.id == client_id))
+    existing = res.scalar_one_or_none()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Ecossistema não encontrado.")
+
+    await db.delete(existing)
+    await db.commit()
+    return {"deleted": True, "id": client_id}
+
+
 @router.get("/templates")
 async def list_templates(
     db: AsyncSession = Depends(get_db),
@@ -188,117 +193,6 @@ async def collect_audit_preview(
     client_map = res.scalar_one_or_none()
     if not client_map:
         raise HTTPException(status_code=404, detail="Cliente não mapeado.")
-
-    if settings.DEV_MOCK_MODE and not settings.GLPI_APP_TOKEN:
-        return {
-            "client_mapping_id": client_map.id,
-            "client_name": client_map.display_name,
-            "reference_month": month,
-            "template_name": "Padrão Completo Softlan TI",
-            "show_glpi_tickets": True,
-            "show_glpi_inventory": True,
-            "show_provimento_cnj": client_map.is_cartorio,
-            "show_bitdefender": True,
-            "show_backups": True,
-            "executive_summary": (
-                f"Durante a competência {month}, a engenharia da Softlan TI conduziu o monitoramento "
-                f"preventivo, a sustentação técnica e a auditoria de continuidade de {client_map.display_name}."
-            ),
-            "glpi_summary": {
-                "total_opened": 18,
-                "total_resolved": 16,
-                "total_in_progress": 2,
-                "top_incidences": [
-                    {"category": "Certificação Digital / Token A3", "count": 6},
-                    {"category": "Impressoras & Spooler", "count": 5},
-                    {"category": "Sistema Cartorário / Banco de Dados", "count": 4},
-                ],
-                "recent_tickets": [],
-                "inventory": {
-                    "has_agent_data": True,
-                    "total_machines": 14,
-                    "machines": [
-                        {
-                            "name": "SRV-DADOS-01",
-                            "os": "Windows Server 2022 Standard",
-                            "last_sync": "Hoje 08:15",
-                        },
-                        {
-                            "name": "BALCAO-01",
-                            "os": "Windows 11 Pro 24H2",
-                            "last_sync": "Hoje 08:12",
-                        },
-                    ],
-                    "note": "14 ativos inventariados via GLPI Agent.",
-                },
-            },
-            "provimento_cnj": {
-                "has_project": client_map.is_cartorio,
-                "ticket_id": 7421,
-                "project_title": "ADEQUAÇÃO TECNOLÓGICA — PROVIMENTO CNJ",
-                "progress_percent": 75.0,
-                "completed_tasks": 6,
-                "total_tasks": 8,
-                "tasks": [
-                    {
-                        "id": 1,
-                        "title": "Inventário de Ativos e Classificação da Serventia",
-                        "completed": True,
-                        "date": "2026-11-10",
-                    },
-                    {
-                        "id": 2,
-                        "title": "Implantação de Backup Imutável em Nuvem (Backblaze B2)",
-                        "completed": True,
-                        "date": "2026-11-14",
-                    },
-                    {
-                        "id": 3,
-                        "title": "Gestão Centralizada de Endpoints (Bitdefender GravityZone)",
-                        "completed": True,
-                        "date": "2026-11-18",
-                    },
-                    {
-                        "id": 4,
-                        "title": "Elaboração da Política de Segurança da Informação (PSI) e PCN",
-                        "completed": False,
-                        "date": "2026-11-26",
-                    },
-                ],
-            }
-            if client_map.is_cartorio
-            else None,
-            "bitdefender_summary": {
-                "total_endpoints": 14,
-                "managed_endpoints": 14,
-                "clean_endpoints": 14,
-                "endpoints_with_issues": 0,
-                "quarantine_items": 2,
-                "security_health_percent": 100.0,
-            },
-            "backup_summary": {
-                "host_slug": client_map.zabbix_host_slug or "cliente-b2",
-                "overall_sla_percent": 99.4,
-                "active_channels": [
-                    {
-                        "channel": "Backup Nuvem (Backblaze B2)",
-                        "status": "Operante",
-                        "is_healthy": True,
-                        "sla_30d_percent": 100.0,
-                        "last_check": "26/11/2026 04:30",
-                    },
-                    {
-                        "channel": "Replica Local",
-                        "status": "Operante",
-                        "is_healthy": True,
-                        "sla_30d_percent": 98.8,
-                        "last_check": "26/11/2026 04:15",
-                    },
-                ],
-                "disk_usage": [{"volume": "Espaço Replica (/dados)", "used_percent": 41.0}],
-                "analyst_note": "Rotinas de cópia de segurança auditadas e íntegras conforme política de retenção.",
-            },
-        }
 
     glpi = GLPIService()
     bd = BitdefenderService()

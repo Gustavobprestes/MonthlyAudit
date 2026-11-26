@@ -2,47 +2,56 @@
 
 @layer base {
   :root {
-    --softlan-orange: oklch(68% 0.21 38);
-    --softlan-obsidian: oklch(11% 0.015 260);
-    --softlan-surface: oklch(15% 0.018 260);
+    --font-display: "Orbitron", "Exo 2", sans-serif;
+    --font-sans: "Exo 2", "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+    --softlan-orange: #ff5a1f;
+    --softlan-obsidian: #06090f;
   }
 
+  html,
   body {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-sans);
+    background-color: var(--softlan-obsidian);
+    color: #f1f5f9;
     overflow-x: hidden;
   }
 }
 
-.bg-grain::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 40;
-  opacity: 0.032;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+.font-brand {
+  font-family: "Orbitron", "Exo 2", sans-serif;
+  letter-spacing: 0.14em;
 }
 
 .squircle-card {
   border-radius: 22px;
-  background: linear-gradient(145deg, rgba(18, 24, 38, 0.78), rgba(10, 14, 23, 0.92));
-  backdrop-filter: blur(18px);
+  background: linear-gradient(155deg, rgba(16, 23, 38, 0.92), rgba(9, 13, 22, 0.96));
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease;
-}
-
-.squircle-card:hover {
-  border-color: rgba(255, 90, 31, 0.38);
+  box-shadow: 0 24px 55px -15px rgba(0, 0, 0, 0.78), inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(20px);
 }
 
 .bloom-orange {
-  box-shadow: 0 0 38px -6px rgba(255, 90, 31, 0.52);
+  box-shadow: 0 0 34px -4px rgba(255, 90, 31, 0.52);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+.bg-grain {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Custom scrollbar elegante para dropdowns e listas */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 90, 31, 0.45);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 90, 31, 0.8);
 }

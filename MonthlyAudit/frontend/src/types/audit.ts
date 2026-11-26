@@ -6,28 +6,33 @@ export interface UserProfile {
 
 export interface ClientMapping {
   id: number;
-  display_name: string;
-  cnpj?: string;
-  cns?: string;
-  is_cartorio: boolean;
-  cnj_class?: string;
   glpi_entity_id: number;
-  glpi_entity_name: string;
-  bitdefender_company_id?: string;
-  bitdefender_company_name?: string;
-  zabbix_host_slug?: string;
+  display_name: string;
+  bitdefender_company_id: string | null;
+  zabbix_host_slug: string | null;
+  is_cartorio: boolean;
 }
 
 export interface ReportTemplate {
   id: number;
   name: string;
-  description: string;
+  description: string | null;
   show_glpi_tickets: boolean;
   show_glpi_inventory: boolean;
   show_provimento_cnj: boolean;
   show_bitdefender: boolean;
   show_backups: boolean;
-  default_executive_note: string;
+  default_executive_summary: string | null;
+}
+
+export interface MachineInventoryItem {
+  name: string;
+  cpu?: string;
+  ram?: string;
+  gpu?: string;
+  os: string;
+  antivirus?: string;
+  last_sync: string;
 }
 
 export interface AuditPayload {
@@ -46,15 +51,14 @@ export interface AuditPayload {
     total_resolved: number;
     total_in_progress: number;
     top_incidences: { category: string; count: number }[];
-    recent_tickets: { id: number; title: string; status: string; category: string; opened_at: string }[];
     inventory: {
       has_agent_data: boolean;
       total_machines: number;
-      machines: { name: string; os: string; last_sync: string }[];
+      machines: MachineInventoryItem[];
       note: string;
     };
   };
-  provimento_cnj?: {
+  provimento_cnj: {
     has_project: boolean;
     ticket_id: number;
     project_title: string;
@@ -63,15 +67,16 @@ export interface AuditPayload {
     total_tasks: number;
     tasks: { id: number; title: string; completed: boolean; date: string }[];
   } | null;
-  bitdefender_summary?: {
+  bitdefender_summary: {
     total_endpoints: number;
     managed_endpoints: number;
     clean_endpoints: number;
     endpoints_with_issues: number;
     quarantine_items: number;
     security_health_percent: number;
+    error?: string;
   } | null;
-  backup_summary?: {
+  backup_summary: {
     host_slug: string;
     overall_sla_percent: number;
     active_channels: {
@@ -83,12 +88,12 @@ export interface AuditPayload {
     }[];
     disk_usage: { volume: string; used_percent: number }[];
     analyst_note: string;
+    error?: string;
   } | null;
 }
 
-export interface AuditHistoryRecord {
+export interface HistoryRecord {
   id: number;
-  client_mapping_id: number;
   client_name: string;
   reference_month: string;
   template_name: string;

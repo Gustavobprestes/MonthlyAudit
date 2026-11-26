@@ -5,52 +5,84 @@
 <style>
   @page {
     size: A4;
-    margin: 18mm 16mm 20mm 16mm;
-    @bottom-left {
-      content: "Softlan TI — Soluções em Tecnologia | Documento Confidencial de Auditoria";
+    margin: 24mm 14mm 20mm 14mm;
+    @top-left {
+      content: "SOFTLAN TI — SOLUÇÕES EM TECNOLOGIA";
       font-family: 'Inter', 'Liberation Sans', sans-serif;
       font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #475569;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-bottom: 6px;
+    }
+    @top-right {
+      content: "AUDITORIA TÉCNICA • {{ data.reference_month }}";
+      font-family: 'Inter', 'Liberation Sans', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 600;
+      color: #ff5a1f;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-bottom: 6px;
+    }
+    @bottom-left {
+      content: "Softlan TI • Rua João Negrão, 731 • Curitiba - PR | Documento Confidencial";
+      font-family: 'Inter', 'Liberation Sans', sans-serif;
+      font-size: 7pt;
       color: #64748b;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 4px;
     }
     @bottom-right {
       content: "Página " counter(page) " de " counter(pages);
       font-family: 'Inter', 'Liberation Sans', sans-serif;
       font-size: 7.5pt;
-      color: #64748b;
+      font-weight: 700;
+      color: #0f172a;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 4px;
     }
   }
 
   body {
     font-family: 'Inter', 'Liberation Sans', sans-serif;
     color: #0f172a;
-    font-size: 9.5pt;
+    font-size: 9pt;
     line-height: 1.45;
     margin: 0;
   }
 
   .header {
-    background: #090d16;
+    background: linear-gradient(135deg, #090d16 0%, #111827 100%);
     color: #ffffff;
-    padding: 20px 24px;
+    padding: 18px 22px;
     border-radius: 10px;
     border-bottom: 4px solid #ff5a1f;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
+  }
+
+  .brand-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 14px;
   }
 
   .brand-title {
     font-size: 16pt;
     font-weight: 800;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.12em;
     color: #ffffff;
     margin: 0;
   }
   .brand-title span { color: #ff5a1f; }
   .brand-sub {
     font-size: 7.5pt;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     color: #94a3b8;
     text-transform: uppercase;
     margin-top: 2px;
@@ -60,6 +92,7 @@
     text-align: right;
     font-size: 8pt;
     color: #cbd5e1;
+    line-height: 1.5;
   }
 
   .client-banner {
@@ -67,28 +100,29 @@
     border: 1px solid #e2e8f0;
     border-left: 4px solid #ff5a1f;
     border-radius: 8px;
-    padding: 14px 18px;
-    margin-bottom: 18px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
   }
   .client-name {
-    font-size: 13pt;
+    font-size: 12.5pt;
     font-weight: 700;
     color: #0f172a;
-    margin: 0 0 4px 0;
+    margin: 0 0 3px 0;
   }
   .client-meta {
-    font-size: 8.5pt;
+    font-size: 8.2pt;
     color: #475569;
   }
 
   h2 {
-    font-size: 10.5pt;
+    font-size: 10pt;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: #0f172a;
     border-bottom: 1.5px solid #e2e8f0;
-    padding-bottom: 5px;
-    margin: 18px 0 10px 0;
+    padding-bottom: 4px;
+    margin: 16px 0 9px 0;
+    page-break-after: avoid;
   }
   h2::before {
     content: "▪ ";
@@ -99,7 +133,7 @@
     display: table;
     width: 100%;
     table-layout: fixed;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     border-spacing: 8px 0;
     margin-left: -8px;
   }
@@ -108,16 +142,16 @@
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 10px 12px;
+    padding: 9px 12px;
   }
   .kpi-label {
-    font-size: 7.5pt;
+    font-size: 7pt;
     text-transform: uppercase;
     color: #64748b;
     font-weight: 600;
   }
   .kpi-value {
-    font-size: 15pt;
+    font-size: 14pt;
     font-weight: 800;
     color: #0f172a;
     margin-top: 2px;
@@ -127,53 +161,64 @@
   table.data-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 14px;
-    font-size: 8.5pt;
+    margin-bottom: 12px;
+    font-size: 8pt;
   }
   table.data-table th {
     background: #0f172a;
     color: #ffffff;
     text-align: left;
-    padding: 7px 10px;
+    padding: 6px 8px;
     font-weight: 600;
   }
   table.data-table td {
-    padding: 7px 10px;
+    padding: 5.5px 8px;
     border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
   }
   table.data-table tr:nth-child(even) td {
     background: #f8fafc;
   }
 
+  table.inv-table {
+    font-size: 7.2pt;
+  }
+  table.inv-table th,
+  table.inv-table td {
+    padding: 5px 6px;
+  }
+
   .col-narrow {
-    width: 115px;
+    width: 105px;
   }
 
   .badge-ok {
     background: #dcfce7;
     color: #166534;
-    padding: 2px 8px;
+    padding: 2px 7px;
     border-radius: 99px;
     font-weight: 700;
-    font-size: 7.5pt;
+    font-size: 7pt;
+    display: inline-block;
   }
   .badge-warn {
     background: #ffedd5;
     color: #9a3412;
-    padding: 2px 8px;
+    padding: 2px 7px;
     border-radius: 99px;
     font-weight: 700;
-    font-size: 7.5pt;
+    font-size: 7pt;
+    display: inline-block;
   }
 
   progress.cnj-progress {
     width: 100%;
-    height: 10px;
+    height: 9px;
     border-radius: 99px;
     overflow: hidden;
     border: none;
     background-color: #e2e8f0;
-    margin: 6px 0 12px 0;
+    margin: 5px 0 10px 0;
   }
   progress.cnj-progress::-webkit-progress-bar {
     background-color: #e2e8f0;
@@ -189,32 +234,45 @@
     background: #fff7ed;
     border: 1px solid #fed7aa;
     border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 8.5pt;
+    padding: 9px 12px;
+    font-size: 8pt;
     color: #7c2d12;
-    margin-top: 8px;
+    margin-top: 6px;
   }
 
   .inventory-note {
-    font-size: 8.5pt;
+    font-size: 8.2pt;
     color: #475569;
+    margin-bottom: 8px;
   }
 
   .integrity-footer {
-    margin-top: 22px;
-    padding-top: 10px;
-    border-top: 1px dashed #cbd5e1;
-    font-size: 7.5pt;
-    color: #64748b;
+    margin-top: 18px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 7.2pt;
+    color: #475569;
   }
 </style>
 </head>
 <body>
 
   <div class="header">
-    <div>
-      <div class="brand-title">SOFTLAN <span>TI</span></div>
-      <div class="brand-sub">Soluções em Tecnologia • Auditoria Mensal</div>
+    <div class="brand-wrapper">
+      <!-- Logotipo Oficial Softlan TI SVG -->
+      <svg width="42" height="42" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M52 8H92V24C92 40 79 52 63 52H36V38H63C71 38 77 32 77 24V22H52C34 22 22 34 22 50V56H8V48C8 24 27 8 52 8Z" fill="#FFFFFF"/>
+        <path d="M48 92H8V76C8 60 21 48 37 48H64V62H37C29 62 23 68 23 76V78H48C66 78 78 66 78 50V44H92V52C92 76 73 92 48 92Z" fill="#FF5A1F"/>
+      </svg>
+      <div>
+        <div class="brand-title">SOFTLAN <span>TI</span></div>
+        <div class="brand-sub">Soluções em Tecnologia • Auditoria Mensal</div>
+      </div>
     </div>
     <div class="meta-box">
       <strong>Competência:</strong> {{ data.reference_month }}<br />
@@ -280,6 +338,7 @@
     ({{ data.provimento_cnj.completed_tasks }}/{{ data.provimento_cnj.total_tasks }} etapas concluídas)
   </div>
   <progress class="cnj-progress" value="{{ data.provimento_cnj.progress_percent }}" max="100"></progress>
+  {% if data.provimento_cnj.tasks %}
   <table class="data-table">
     <thead>
       <tr>
@@ -302,6 +361,7 @@
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
   {% endif %}
 
   {% if data.show_bitdefender and data.bitdefender_summary %}
@@ -358,23 +418,29 @@
   {% endif %}
 
   {% if data.show_glpi_inventory and data.glpi_summary and data.glpi_summary.inventory %}
-  <h2>Inventário Tecnológico Mapeado</h2>
+  <h2>Inventário Tecnológico & Hardware Auditado</h2>
   <p class="inventory-note">{{ data.glpi_summary.inventory.note }}</p>
   {% if data.glpi_summary.inventory.machines %}
-  <table class="data-table">
+  <table class="data-table inv-table">
     <thead>
       <tr>
-        <th>Host / Estação</th>
+        <th>Estação / Host</th>
+        <th>Processador (CPU)</th>
+        <th>RAM</th>
+        <th>Placa de Vídeo (GPU)</th>
         <th>Sistema Operacional</th>
-        <th>Última Sincronização</th>
+        <th>Antivírus</th>
       </tr>
     </thead>
     <tbody>
       {% for m in data.glpi_summary.inventory.machines %}
       <tr>
-        <td>{{ m.name }}</td>
+        <td><strong>{{ m.name }}</strong></td>
+        <td>{{ m.cpu or 'Não informado' }}</td>
+        <td><strong>{{ m.ram or '-' }}</strong></td>
+        <td>{{ m.gpu or 'Integrada' }}</td>
         <td>{{ m.os }}</td>
-        <td>{{ m.last_sync }}</td>
+        <td>{{ m.antivirus or 'Não detectado' }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -383,7 +449,16 @@
   {% endif %}
 
   <div class="integrity-footer">
-    Responsável Técnico: <strong>{{ generated_by }}</strong> • Hash de Integridade SHA-256: <code>{{ doc_hash }}</code>
+    <div>
+      <strong>SOFTLAN TI — Soluções em Tecnologia</strong><br />
+      Responsável Técnico: <strong>{{ generated_by }}</strong> • Hash SHA-256: <code>{{ doc_hash }}</code>
+    </div>
+    <div>
+      <svg width="26" height="26" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M52 8H92V24C92 40 79 52 63 52H36V38H63C71 38 77 32 77 24V22H52C34 22 22 34 22 50V56H8V48C8 24 27 8 52 8Z" fill="#0F172A"/>
+        <path d="M48 92H8V76C8 60 21 48 37 48H64V62H37C29 62 23 68 23 76V78H48C66 78 78 66 78 50V44H92V52C92 76 73 92 48 92Z" fill="#FF5A1F"/>
+      </svg>
+    </div>
   </div>
 
 </body>

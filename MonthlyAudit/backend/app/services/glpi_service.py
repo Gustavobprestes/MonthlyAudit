@@ -1,5 +1,9 @@
+import asyncio
+import calendar
 import re
 from collections import Counter
+from typing import Any
+import bleach
 import httpx
 from app.core.config import settings
 
@@ -7,222 +11,340 @@ from app.core.config import settings
 class GLPIService:
     def __init__(self) -> None:
         self.base_url = settings.GLPI_API_URL.rstrip("/")
-        self.app_token = settings.GLPI_APP_TOKEN
-        self.user_token = settings.GLPI_USER_TOKEN
+        self.app_token = settings.GLPI_APP_TOKEN.strip()
+        self.user_token = settings.GLPI_USER_TOKEN.strip()
 
     async def _init_session(self, client: httpx.AsyncClient) -> str:
-        resp = await client.get(
-            f"{self.base_url}/initSession",
-            headers={
-                "App-Token": self.app_token,
-                "Authorization": f"user_token {self.user_token}",
-            },
-        )
+        headers = {
+            "App-Token": self.app_token,
+            "Authorization": f"user_token {self.user_token}",
+            "Content-Type": "application/json",
+        }
+        resp = await client.get(f"{self.base_url}/initSession", headers=headers)
         resp.raise_for_status()
         return resp.json()["session_token"]
 
     async def _kill_session(self, client: httpx.AsyncClient, session_token: str) -> None:
+        headers = {"App-Token": self.app_token, "Session-Token": session_token}
         try:
-            await client.get(
-                f"{self.base_url}/killSession",
-                headers={"App-Token": self.app_token, "Session-Token": session_token},
-            )
+            await client.get(f"{self.base_url}/killSession", headers=headers)
         except Exception:
             pass
 
-    async def list_entities(self) -> list[dict]:
+    async def list_entities(self) -> list[dict[str, Any]]:
+        """Lista rapidamente todas as entidades ativas do GLPI para vínculo."""
+        if not self.app_token or not self.user_token:
+            return []
         async with httpx.AsyncClient(timeout=20.0) as client:
             token = await self._init_session(client)
             try:
+                headers = {"App-Token": self.app_token, "Session-Token": token}
                 resp = await client.get(
                     f"{self.base_url}/Entity",
-                    params={"range": "0-500"},
-                    headers={"App-Token": self.app_token, "Session-Token": token},
+                    headers=headers,
+                    params={"range": "0-500", "only_id": "false"},
                 )
                 resp.raise_for_status()
-                return [
-                    {"id": e["id"], "name": e["name"], "completename": e.get("completename", e["name"])}
-                    for e in resp.json()
-                    if e.get("id", 0) > 0
+                entities = resp.json()
+                result = [
+                    {
+                        "id": int(e["id"]),
+                        "name": e.get("name", f"Entidade #{e['id']}"),
+                        "completename": e.get("completename", e.get("name", "")),
+                    }
+                    for e in entities
+                    if isinstance(e, dict) and "id" in e
                 ]
+                return sorted(result, key=lambda x: x["name"].lower())
             finally:
                 await self._kill_session(client, token)
 
-    async def collect_client_audit(self, entity_id: int, reference_month: str) -> dict:
-        """
-        Coleta:
-        1. Chamados da entidade no mês (abertos, resolvidos, top incidências por categoria)
-        2. Inventário de computadores/servidores (quando disponível via GLPI Agent)
-        3. Chamado de Implantação (Provimento CNJ) e progresso das TicketTasks
-        """
-        year, month = reference_month.split("-")
-        start_date = f"{year}-{month}-01 00:00:00"
-        end_date = f"{year}-{month}-31 23:59:59"
+    async def _fetch_machine_hardware(
+        self,
+        client: httpx.AsyncClient,
+        headers: dict[str, str],
+        comp: dict[str, Any],
+        sem: asyncio.Semaphore,
+    ) -> dict[str, str]:
+        """Coleta CPU, Memória RAM, Placa de Vídeo (GPU), Sistema Operacional e Antivírus de cada máquina."""
+        comp_id = comp.get("id")
+        comp_name = str(comp.get("name") or f"ID-{comp_id}")
+        last_sync = str(comp.get("date_mod") or comp.get("last_inventory_update") or "-")
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            token = await self._init_session(client)
-            headers = {"App-Token": self.app_token, "Session-Token": token}
+        async with sem:
+            # 1. Sistema Operacional
+            os_name = "Não identificado"
             try:
-                # 1. Busca chamados da entidade via Search API do GLPI
-                search_params = {
-                    "criteria[0][field]": 80,  # entities_id
-                    "criteria[0][searchtype]": "equals",
-                    "criteria[0][value]": entity_id,
-                    "forcedisplay[0]": 2,   # ID
-                    "forcedisplay[1]": 1,   # Título
-                    "forcedisplay[2]": 12,  # Status
-                    "forcedisplay[3]": 7,   # Categoria ITIL
-                    "forcedisplay[4]": 15,  # Data abertura
-                    "forcedisplay[5]": 16,  # Data fechamento
-                    "range": "0-500",
-                }
+                os_resp = await client.get(
+                    f"{self.base_url}/Computer/{comp_id}/Item_OperatingSystem",
+                    headers=headers,
+                    params={"expand_dropdowns": "true"},
+                )
+                if os_resp.status_code == 200:
+                    os_list = os_resp.json()
+                    if isinstance(os_list, list) and os_list:
+                        os_name = str(os_list[0].get("operatingsystems_id") or os_name)
+            except Exception:
+                pass
+
+            # 2. Processador (CPU)
+            cpu_name = "Não informado"
+            try:
+                cpu_resp = await client.get(
+                    f"{self.base_url}/Computer/{comp_id}/Item_DeviceProcessor",
+                    headers=headers,
+                    params={"expand_dropdowns": "true"},
+                )
+                if cpu_resp.status_code == 200:
+                    cpu_list = cpu_resp.json()
+                    if isinstance(cpu_list, list) and cpu_list:
+                        raw_cpu = str(cpu_list[0].get("deviceprocessors_id") or "")
+                        if raw_cpu:
+                            cpu_name = re.sub(r"\s+", " ", raw_cpu).strip()
+            except Exception:
+                pass
+
+            # 3. Memória RAM (Soma todos os pentes em MB -> GB)
+            ram_label = "Não informada"
+            try:
+                ram_resp = await client.get(
+                    f"{self.base_url}/Computer/{comp_id}/Item_DeviceMemory",
+                    headers=headers,
+                    params={"expand_dropdowns": "true"},
+                )
+                if ram_resp.status_code == 200:
+                    ram_list = ram_resp.json()
+                    if isinstance(ram_list, list) and ram_list:
+                        total_mb = 0
+                        for stick in ram_list:
+                            try:
+                                total_mb += int(stick.get("size") or 0)
+                            except (ValueError, TypeError):
+                                pass
+                        if total_mb > 0:
+                            gb = round(total_mb / 1024)
+                            ram_label = f"{gb} GB"
+            except Exception:
+                pass
+
+            # 4. Placa de Vídeo (GPU)
+            gpu_name = "Integrada / Padrão"
+            try:
+                gpu_resp = await client.get(
+                    f"{self.base_url}/Computer/{comp_id}/Item_DeviceGraphicCard",
+                    headers=headers,
+                    params={"expand_dropdowns": "true"},
+                )
+                if gpu_resp.status_code == 200:
+                    gpu_list = gpu_resp.json()
+                    if isinstance(gpu_list, list) and gpu_list:
+                        gpus = [
+                            str(g.get("devicegraphiccards_id")).strip()
+                            for g in gpu_list
+                            if g.get("devicegraphiccards_id")
+                        ]
+                        if gpus:
+                            gpu_name = " / ".join(dict.fromkeys(gpus))
+            except Exception:
+                pass
+
+            # 5. Antivírus Instalado
+            av_name = "Não detectado"
+            try:
+                av_resp = await client.get(
+                    f"{self.base_url}/Computer/{comp_id}/ComputerAntivirus",
+                    headers=headers,
+                    params={"expand_dropdowns": "true"},
+                )
+                if av_resp.status_code == 200:
+                    av_list = av_resp.json()
+                    if isinstance(av_list, list) and av_list:
+                        avs = [
+                            str(a.get("name")).strip()
+                            for a in av_list
+                            if a.get("name")
+                        ]
+                        if avs:
+                            av_name = ", ".join(dict.fromkeys(avs))
+            except Exception:
+                pass
+
+            return {
+                "name": comp_name,
+                "cpu": cpu_name,
+                "ram": ram_label,
+                "gpu": gpu_name,
+                "os": os_name,
+                "antivirus": av_name,
+                "last_sync": last_sync,
+            }
+
+    async def collect_client_audit(self, entity_id: int, reference_month: str) -> dict[str, Any]:
+        """Coleta volumetria mensal, incidências, Provimento CNJ e inventário de hardware/antivírus."""
+        if not self.app_token or not self.user_token:
+            return {
+                "total_opened": 0,
+                "total_resolved": 0,
+                "total_in_progress": 0,
+                "top_incidences": [],
+                "recent_tickets": [],
+                "provimento_cnj": None,
+                "inventory": {"has_agent_data": False, "total_machines": 0, "machines": []},
+            }
+
+        year, month = map(int, reference_month.split("-"))
+        last_day = calendar.monthrange(year, month)[1]
+        start_dt = f"{year:04d}-{month:02d}-01 00:00:00"
+        end_dt = f"{year:04d}-{month:02d}-{last_day:02d} 23:59:59"
+
+        async with httpx.AsyncClient(timeout=35.0) as client:
+            token = await self._init_session(client)
+            try:
+                headers = {"App-Token": self.app_token, "Session-Token": token}
+
+                # 1. Chamados da entidade
                 tickets_resp = await client.get(
                     f"{self.base_url}/search/Ticket",
-                    params=search_params,
                     headers=headers,
+                    params={
+                        "criteria[0][field]": "80",
+                        "criteria[0][searchtype]": "equals",
+                        "criteria[0][value]": str(entity_id),
+                        "forcedisplay[0]": "1",
+                        "forcedisplay[1]": "2",
+                        "forcedisplay[2]": "7",
+                        "forcedisplay[3]": "12",
+                        "forcedisplay[4]": "15",
+                        "forcedisplay[5]": "16",
+                        "range": "0-500",
+                    },
                 )
                 tickets_resp.raise_for_status()
-                rows = tickets_resp.json().get("data", [])
+                raw_tickets = tickets_resp.json().get("data", [])
 
                 monthly_tickets = []
-                categories_counter: Counter = Counter()
-                implantacao_ticket_id: int | None = None
-                implantacao_title: str = ""
+                category_counter: Counter[str] = Counter()
+                resolved_count = 0
+                in_progress_count = 0
+                implantacao_ticket = None
 
-                for row in rows:
-                    t_id = row.get("2")
-                    title = str(row.get("1", ""))
-                    status_code = int(row.get("12", 1))
-                    category = str(row.get("7") or "Suporte Geral")
-                    opened_at = str(row.get("15", ""))
+                for t in raw_tickets:
+                    t_date = str(t.get("15", ""))
+                    cat_name = str(t.get("7") or "Suporte Geral")
+                    status_code = int(t.get("12") or 1)
+                    title = str(t.get("1") or "")
 
-                    # Detecta chamado de implantação (Provimento CNJ)
                     if (
-                        settings.GLPI_IMPLANTACAO_CATEGORY_NAME.lower() in category.lower()
-                        or "PROVIMENTO" in title.upper()
-                        or "IMPLANTAÇÃO" in title.upper()
+                        settings.GLPI_IMPLANTACAO_CATEGORY_NAME.lower() in cat_name.lower()
+                        or "provimento" in title.lower()
+                        or "cnj" in title.lower()
                     ):
-                        implantacao_ticket_id = int(t_id)
-                        implantacao_title = title
+                        if implantacao_ticket is None or int(t["2"]) > int(implantacao_ticket["2"]):
+                            implantacao_ticket = t
 
-                    if start_date <= opened_at <= end_date:
+                    if start_dt <= t_date <= end_dt:
                         monthly_tickets.append(
                             {
-                                "id": t_id,
+                                "id": int(t["2"]),
                                 "title": title,
-                                "status": self._map_status(status_code),
-                                "category": category.split(">")[-1].strip(),
-                                "opened_at": opened_at,
+                                "category": cat_name,
+                                "status": status_code,
+                                "opened_at": t_date,
                             }
                         )
-                        categories_counter[category.split(">")[-1].strip()] += 1
+                        category_counter[cat_name] += 1
+                        if status_code in (5, 6):
+                            resolved_count += 1
+                        else:
+                            in_progress_count += 1
 
-                # 2. Inventário de Computadores na Entidade
-                comp_resp = await client.get(
-                    f"{self.base_url}/search/Computer",
-                    params={
-                        "criteria[0][field]": 80,
-                        "criteria[0][searchtype]": "equals",
-                        "criteria[0][value]": entity_id,
-                        "forcedisplay[0]": 1,   # Nome
-                        "forcedisplay[1]": 45,  # SO
-                        "forcedisplay[2]": 19,  # Última atualização inventário
-                        "range": "0-300",
-                    },
-                    headers=headers,
-                )
-                computers_raw = comp_resp.json().get("data", []) if comp_resp.status_code == 200 else []
-                computers = [
-                    {
-                        "name": c.get("1", "N/D"),
-                        "os": c.get("45") or "Sem agente GLPI",
-                        "last_sync": c.get("19") or "Manual",
-                    }
-                    for c in computers_raw
-                ]
-
-                # 3. Detalhes do Chamado de Implantação (Provimento CNJ) + TicketTasks
+                # 2. Tarefas do Projeto Provimento CNJ (TicketTask)
                 provimento_data = None
-                if implantacao_ticket_id:
-                    t_detail = await client.get(
-                        f"{self.base_url}/Ticket/{implantacao_ticket_id}",
-                        headers=headers,
-                    )
+                if implantacao_ticket:
+                    ticket_id = int(implantacao_ticket["2"])
                     tasks_resp = await client.get(
-                        f"{self.base_url}/Ticket/{implantacao_ticket_id}/TicketTask",
+                        f"{self.base_url}/Ticket/{ticket_id}/TicketTask",
                         headers=headers,
                     )
                     tasks_raw = tasks_resp.json() if tasks_resp.status_code == 200 else []
                     parsed_tasks = []
-                    done_count = 0
-                    for tk in tasks_raw:
-                        # state == 2 no GLPI significa Tarefa Concluída (Done)
-                        is_done = int(tk.get("state", 1)) == 2
+                    done_tasks = 0
+                    for idx, task in enumerate(tasks_raw, start=1):
+                        if not isinstance(task, dict):
+                            continue
+                        clean_text = bleach.clean(
+                            str(task.get("content", "")), tags=[], strip=True
+                        ).strip()
+                        first_line = (
+                            clean_text.splitlines()[0][:140] if clean_text else f"Etapa #{idx}"
+                        )
+                        is_done = int(task.get("state", 0)) == 2
                         if is_done:
-                            done_count += 1
-                        clean_text = re.sub(r"<[^>]+>", "", str(tk.get("content", ""))).strip()
+                            done_tasks += 1
                         parsed_tasks.append(
                             {
-                                "id": tk.get("id"),
-                                "title": clean_text[:140] or f"Etapa #{tk.get('id')}",
+                                "id": int(task.get("id", idx)),
+                                "title": first_line,
                                 "completed": is_done,
-                                "date": tk.get("date_mod") or tk.get("date"),
+                                "date": str(task.get("date", "")),
                             }
                         )
 
-                    total_tasks = len(parsed_tasks)
-                    progress_pct = round((done_count / total_tasks) * 100, 1) if total_tasks > 0 else 0.0
-
+                    total_t = len(parsed_tasks)
+                    progress_pct = round((done_tasks / total_t) * 100, 1) if total_t > 0 else 0.0
                     provimento_data = {
                         "has_project": True,
-                        "ticket_id": implantacao_ticket_id,
-                        "project_title": implantacao_title,
+                        "ticket_id": ticket_id,
+                        "project_title": str(implantacao_ticket.get("1", "Implantação Novo Cliente")),
                         "progress_percent": progress_pct,
-                        "completed_tasks": done_count,
-                        "total_tasks": total_tasks,
+                        "completed_tasks": done_tasks,
+                        "total_tasks": total_t,
                         "tasks": parsed_tasks,
-                        "ticket_status": self._map_status(
-                            int(t_detail.json().get("status", 2))
-                        )
-                        if t_detail.status_code == 200
-                        else "Em Andamento",
                     }
 
-                resolved_count = sum(
-                    1 for t in monthly_tickets if t["status"] in ("Solucionado", "Fechado")
+                # 3. Inventário Completo de Máquinas via GLPI Agent (coleta paralela segura)
+                comp_resp = await client.get(
+                    f"{self.base_url}/Computer",
+                    headers=headers,
+                    params={"range": "0-250", "only_id": "false"},
                 )
+                computers = comp_resp.json() if comp_resp.status_code == 200 else []
+                entity_computers = [
+                    c
+                    for c in computers
+                    if isinstance(c, dict)
+                    and int(c.get("entities_id", -1)) == entity_id
+                    and int(c.get("is_deleted", 0)) == 0
+                ]
+
+                sem = asyncio.Semaphore(10)
+                machines = await asyncio.gather(
+                    *[
+                        self._fetch_machine_hardware(client, headers, comp, sem)
+                        for comp in entity_computers[:35]
+                    ]
+                )
+                machines_sorted = sorted(machines, key=lambda m: m["name"].lower())
 
                 return {
                     "total_opened": len(monthly_tickets),
                     "total_resolved": resolved_count,
-                    "total_in_progress": len(monthly_tickets) - resolved_count,
+                    "total_in_progress": in_progress_count,
                     "top_incidences": [
-                        {"category": cat, "count": cnt}
-                        for cat, cnt in categories_counter.most_common(5)
+                        {"category": k, "count": v} for k, v in category_counter.most_common(5)
                     ],
-                    "recent_tickets": monthly_tickets[:12],
+                    "recent_tickets": monthly_tickets[:15],
+                    "provimento_cnj": provimento_data,
                     "inventory": {
-                        "has_agent_data": len(computers) > 0,
-                        "total_machines": len(computers),
-                        "machines": computers[:25],
+                        "has_agent_data": len(entity_computers) > 0,
+                        "total_machines": len(entity_computers),
+                        "machines": machines_sorted,
                         "note": (
-                            f"{len(computers)} ativos inventariados via GLPI Agent."
-                            if computers
-                            else "Inventário automatizado em fase de implantação do agente GLPI."
+                            f"{len(entity_computers)} ativos inventariados via GLPI Agent com especificações de hardware e antivírus."
+                            if entity_computers
+                            else "Parque em fase de implantação do agente de inventário automatizado."
                         ),
                     },
-                    "provimento_cnj": provimento_data,
                 }
             finally:
                 await self._kill_session(client, token)
-
-    @staticmethod
-    def _map_status(code: int) -> str:
-        return {
-            1: "Novo",
-            2: "Em Atendimento",
-            3: "Planejado",
-            4: "Pendente",
-            5: "Solucionado",
-            6: "Fechado",
-        }.get(code, "Em Atendimento")
