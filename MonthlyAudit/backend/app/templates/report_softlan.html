@@ -145,6 +145,10 @@
     background: #f8fafc;
   }
 
+  .col-narrow {
+    width: 115px;
+  }
+
   .badge-ok {
     background: #dcfce7;
     color: #166534;
@@ -162,17 +166,23 @@
     font-size: 7.5pt;
   }
 
-  .progress-bar-bg {
+  progress.cnj-progress {
     width: 100%;
     height: 10px;
-    background: #e2e8f0;
     border-radius: 99px;
     overflow: hidden;
+    border: none;
+    background-color: #e2e8f0;
     margin: 6px 0 12px 0;
   }
-  .progress-bar-fill {
-    height: 100%;
-    background: #ff5a1f;
+  progress.cnj-progress::-webkit-progress-bar {
+    background-color: #e2e8f0;
+  }
+  progress.cnj-progress::-webkit-progress-value {
+    background-color: #ff5a1f;
+  }
+  progress.cnj-progress::-moz-progress-bar {
+    background-color: #ff5a1f;
   }
 
   .note-box {
@@ -183,6 +193,11 @@
     font-size: 8.5pt;
     color: #7c2d12;
     margin-top: 8px;
+  }
+
+  .inventory-note {
+    font-size: 8.5pt;
+    color: #475569;
   }
 
   .integrity-footer {
@@ -242,7 +257,7 @@
     <thead>
       <tr>
         <th>Categoria / Maior Incidência</th>
-        <th style="width: 110px;">Ocorrências</th>
+        <th class="col-narrow">Ocorrências</th>
       </tr>
     </thead>
     <tbody>
@@ -264,14 +279,12 @@
     <strong>Progresso Consolidado:</strong> {{ data.provimento_cnj.progress_percent }}%
     ({{ data.provimento_cnj.completed_tasks }}/{{ data.provimento_cnj.total_tasks }} etapas concluídas)
   </div>
-  <div class="progress-bar-bg">
-    <progress class="cnj-progress" value="{{ data.provimento_cnj.progress_percent }}" max="100"></progress>
-  </div>
+  <progress class="cnj-progress" value="{{ data.provimento_cnj.progress_percent }}" max="100"></progress>
   <table class="data-table">
     <thead>
       <tr>
         <th>Etapa / Entregável Normativo</th>
-        <th style="width: 120px;">Situação</th>
+        <th class="col-narrow">Situação</th>
       </tr>
     </thead>
     <tbody>
@@ -346,7 +359,7 @@
 
   {% if data.show_glpi_inventory and data.glpi_summary and data.glpi_summary.inventory %}
   <h2>Inventário Tecnológico Mapeado</h2>
-  <p style="font-size: 8.5pt; color: #475569;">{{ data.glpi_summary.inventory.note }}</p>
+  <p class="inventory-note">{{ data.glpi_summary.inventory.note }}</p>
   {% if data.glpi_summary.inventory.machines %}
   <table class="data-table">
     <thead>

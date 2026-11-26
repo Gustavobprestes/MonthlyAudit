@@ -31,7 +31,6 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Mouse Parallax 3D Card
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const rotateX = useSpring(useTransform(mouseY, [-300, 300], [6, -6]), { stiffness: 180, damping: 24 });
@@ -197,6 +196,29 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
 
             <div className="flex flex-col items-center justify-center py-4 px-4 rounded-2xl bg-white/[0.02] border border-white/10">
               <div ref={googleBtnRef} className="min-h-[44px] flex items-center justify-center" />
+              {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoading(true);
+                    try {
+                      const data = await apiFetch<{ user: UserProfile }>("/api/v1/auth/dev-login", {
+                        method: "POST",
+                      });
+                      onSuccess(data.user);
+                    } catch (err) {
+                      setError(
+                        err instanceof Error ? err.message : "Erro ao entrar no modo local."
+                      );
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="w-full py-3 px-5 rounded-full bg-[#ff5a1f] hover:bg-[#ff6d38] text-white font-bold text-sm bloom-orange transition cursor-pointer"
+                >
+                  Entrar no Ambiente Local (Modo Teste)
+                </button>
+              )}
               {loading && (
                 <span className="mt-3 text-xs font-mono text-[#ff7b47] animate-pulse">
                   Validando credenciais Workspace...
