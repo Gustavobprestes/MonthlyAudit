@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 import httpx
 from app.core.config import settings
+
+logger = logging.getLogger("softlan.zabbix")
 
 
 class ZabbixService:
@@ -13,24 +16,26 @@ class ZabbixService:
     async def _rpc(self, method: str, params: dict[str, Any]) -> Any:
         if not self.api_token:
             return None
-        # Zabbix 7.0+ utiliza obrigatoriamente Authorization: Bearer <API_TOKEN>
-        headers = {
+
+        headers_bearer = {
             "Content-Type": "application/json-rpc",
             "Authorization": f"Bearer {self.api_token}",
         }
-        payload: dict[str, Any] = {
+        payload_bearer: dict[str, Any] = {
             "jsonrpc": "2.0",
             "method": method,
             "params": params,
             "id": 1,
         }
-        async with httpx.AsyncClient(timeout=20.0, verify=True) as client:
-            resp = await client.post(self.api_url, json=payload, headers=headers)
+
+        async with httpx.AsyncClient(timeout=20.0, verify=False) as client:
+            resp = await client.post(self.api_url, json=payload_bearer, headers=headers_bearer)
             resp.raise_for_status()
             data = resp.json()
+
             if "error" in data:
-                # Fallback para instâncias Zabbix 6.x legadas caso Bearer seja rejeitado
-                legacy_payload = {
+                # Fallback para instâncias Zabbix 6.x que utilizam campo "auth" no JSON
+                payload_legacy = {
                     "jsonrpc": "2.0",
                     "method": method,
                     "params": params,
@@ -39,56 +44,65 @@ class ZabbixService:
                 }
                 resp_legacy = await client.post(
                     self.api_url,
-                    json=legacy_payload,
+                    json=payload_legacy,
                     headers={"Content-Type": "application/json-rpc"},
                 )
                 resp_legacy.raise_for_status()
                 data_legacy = resp_legacy.json()
                 if "error" in data_legacy:
+                    logger.error("Erro Zabbix RPC (%s): %s", method, data_legacy["error"])
                     raise RuntimeError(f"Zabbix RPC ({method}): {data_legacy['error']}")
                 return data_legacy.get("result")
+
             return data.get("result")
 
     async def list_backup_hosts(self) -> list[dict[str, Any]]:
-        """Lista todos os hosts abreviados (ex: 1protesto, 2ri, 5notas) no grupo LogsBackups."""
+        """Lista todos os hosts abreviados (ex: 10notas, 1protesto, 2ri) no grupo LogsBackups."""
         if not self.api_token:
             return []
         try:
+            # 1. Busca o grupo exato (LogsBackups)
             groups = await self._rpc(
                 "hostgroup.get",
                 {"output": ["groupid", "name"], "filter": {"name": [self.backup_group]}},
             )
+            # 2. Caso não encontre exato, busca case-insensitive com search
             if not groups:
-                # Busca parcial caso o nome tenha variação
                 groups = await self._rpc(
                     "hostgroup.get",
                     {"output": ["groupid", "name"], "search": {"name": self.backup_group}},
                 )
-            if not groups:
-                return []
-            group_ids = [g["groupid"] for g in groups]
-            hosts = await self._rpc(
-                "host.get",
-                {
-                    "output": ["hostid", "host", "name", "status"],
-                    "groupids": group_ids,
-                    "filter": {"status": "0"},
-                },
-            )
+
+            host_params: dict[str, Any] = {
+                "output": ["hostid", "host", "name", "status"],
+            }
+            if groups:
+                host_params["groupids"] = [g["groupid"] for g in groups]
+
+            hosts = await self._rpc("host.get", host_params)
+            if not hosts and groups:
+                # Fallback: busca todos os hosts visíveis ao token caso o grupo tenha sido renomeado
+                hosts = await self._rpc(
+                    "host.get",
+                    {"output": ["hostid", "host", "name", "status"]},
+                )
+
             result = [
                 {
-                    "hostid": h["hostid"],
-                    "slug": h["host"],
-                    "name": h.get("name") or h["host"],
+                    "hostid": str(h["hostid"]),
+                    "slug": str(h["host"]),
+                    "name": str(h.get("name") or h["host"]),
                 }
                 for h in (hosts or [])
+                if str(h.get("status", "0")) == "0"
             ]
             return sorted(result, key=lambda x: x["slug"].lower())
-        except Exception:
+        except Exception as exc:
+            logger.exception("Falha ao listar hosts do Zabbix em %s: %s", self.api_url, exc)
             return []
 
     async def collect_backup_audit(self, host_slug: str | None) -> dict[str, Any]:
-        """Coleta itens ativos de backup do host abreviado no Zabbix, ignorando canais não contratados."""
+        """Coleta itens ativos de backup do host abreviado no Zabbix."""
         if not self.api_token or not host_slug:
             return {}
 
@@ -139,7 +153,6 @@ class ZabbixService:
                     "%d/%m/%Y %H:%M"
                 )
 
-                # Itens de armazenamento / disco
                 if "espaço" in item_name.lower() or "disk" in item_name.lower() or "%" in item_name:
                     try:
                         disk_usage.append(
@@ -149,9 +162,6 @@ class ZabbixService:
                         pass
                     continue
 
-                # No Zabbix LogsBackups: valor 0 = OK / Operante; != 0 = Alerta / Atenção
-                is_ok = last_val_raw in ("0", "0.0", "OK", "ok", "true", "1") if last_val_raw != "0" else True
-                # Regra específica Softlan TI: 0 = Sucesso, >= 1 = Falha/Aviso
                 try:
                     num_val = float(last_val_raw)
                     is_ok = num_val == 0.0
@@ -210,4 +220,5 @@ class ZabbixService:
                 ),
             }
         except Exception as exc:
+            logger.exception("Erro ao coletar backup Zabbix para %s: %s", host_slug, exc)
             return {"host_slug": host_slug, "active_channels": [], "error": str(exc)}

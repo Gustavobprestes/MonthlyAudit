@@ -60,23 +60,19 @@ export function AnimatedSelect({
             setQuery("");
           }
         }}
-        className={`w-full flex items-center justify-between gap-3 bg-[#090e1a]/90 border rounded-xl px-4 py-3 text-left text-sm transition-all cursor-pointer ${
-          open
-            ? "border-[#ff5a1f] ring-2 ring-[#ff5a1f]/25 text-white"
-            : "border-white/12 hover:border-white/25 text-slate-200"
-        } disabled:opacity-50`}
+        className="w-full flex items-center justify-between gap-3 theme-input rounded-xl px-4 py-2.5 text-left text-sm transition-all cursor-pointer disabled:opacity-50"
       >
         <span className="truncate">
           {selected ? (
-            <span className="font-medium text-white">{selected.label}</span>
+            <span className="font-semibold">{selected.label}</span>
           ) : (
-            <span className="text-slate-400">{placeholder}</span>
+            <span className="theme-text-muted">{placeholder}</span>
           )}
         </span>
         <motion.span
           animate={{ rotate: open ? 180 : 0 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="text-slate-400 shrink-0"
+          className="theme-text-muted shrink-0"
         >
           <ChevronDown className="w-4 h-4" />
         </motion.span>
@@ -89,25 +85,26 @@ export function AnimatedSelect({
             animate={{ opacity: 1, y: 4, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-0 right-0 z-50 mt-1 rounded-2xl bg-[#0c1220] border border-white/15 shadow-[0_24px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl overflow-hidden"
+            style={{ backgroundColor: "var(--bg-surface-strong)" }}
+            className="absolute left-0 right-0 z-50 mt-1 rounded-2xl border border-current/15 shadow-2xl overflow-hidden"
           >
             {searchable && (
-              <div className="p-2.5 border-b border-white/10 flex items-center gap-2 bg-white/[0.02]">
-                <Search className="w-4 h-4 text-[#ff5a1f] shrink-0 ml-1" />
+              <div className="p-2.5 border-b border-current/10 flex items-center gap-2">
+                <Search className="w-4 h-4 theme-accent-text shrink-0 ml-1" />
                 <input
                   type="text"
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Filtrar por nome..."
-                  className="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none py-1"
+                  className="w-full bg-transparent text-xs focus:outline-none py-1"
                 />
               </div>
             )}
 
             <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
               {filtered.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-slate-500">
+                <div className="px-3 py-4 text-center text-xs theme-text-muted">
                   Nenhum registro encontrado.
                 </div>
               ) : (
@@ -123,19 +120,19 @@ export function AnimatedSelect({
                       }}
                       className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left text-xs transition cursor-pointer ${
                         isSelected
-                          ? "bg-[#ff5a1f]/20 text-white border border-[#ff5a1f]/40"
-                          : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                          ? "bg-current/10 font-bold"
+                          : "hover:bg-current/[0.06]"
                       }`}
                     >
                       <div className="min-w-0">
                         <div className="font-semibold truncate">{opt.label}</div>
                         {opt.sublabel && (
-                          <div className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
+                          <div className="text-[10px] font-mono theme-text-muted truncate mt-0.5">
                             {opt.sublabel}
                           </div>
                         )}
                       </div>
-                      {isSelected && <Check className="w-4 h-4 text-[#ff5a1f] shrink-0" />}
+                      {isSelected && <Check className="w-4 h-4 theme-accent-text shrink-0" />}
                     </button>
                   );
                 })

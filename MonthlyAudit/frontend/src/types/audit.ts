@@ -1,7 +1,27 @@
+export type AppTheme =
+  | "softlan"
+  | "dracula"
+  | "glass"
+  | "dark"
+  | "light"
+  | "cloud"
+  | "cyberpunk";
+
 export interface UserProfile {
   sub: string;
   name: string;
   picture?: string;
+  role: "admin" | "user";
+}
+
+export interface ManagedUser {
+  id: number;
+  email: string;
+  name: string;
+  picture?: string;
+  role: "admin" | "user";
+  is_env_locked: boolean;
+  last_login: string;
 }
 
 export interface ClientMapping {

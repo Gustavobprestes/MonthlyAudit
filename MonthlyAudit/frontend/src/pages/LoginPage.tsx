@@ -4,7 +4,7 @@ import { ShieldCheck, Activity, FileCheck2, Lock } from "lucide-react";
 import { HeroShaderCanvas } from "../components/HeroShaderCanvas";
 import { SoftlanBrand } from "../components/SoftlanBrand";
 import { apiFetch } from "../lib/api";
-import type { UserProfile } from "../types/audit";
+import type { AppTheme, UserProfile } from "../types/audit";
 
 declare global {
   interface Window {
@@ -31,6 +31,12 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const savedTheme = (localStorage.getItem("softlan_theme") as AppTheme) || "softlan";
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", savedTheme);
+  }, [savedTheme]);
 
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -87,37 +93,35 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
 
   return (
     <div
-      className="relative min-h-screen flex flex-col justify-between px-6 py-10 bg-grain"
+      className="relative min-h-screen flex flex-col justify-between px-6 py-8"
       onMouseMove={(e) => {
         mouseX.set(e.clientX - window.innerWidth / 2);
         mouseY.set(e.clientY - window.innerHeight / 2);
       }}
     >
-      <HeroShaderCanvas />
+      <HeroShaderCanvas theme={savedTheme} />
 
-      {/* Top Kinetic Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-7xl w-full mx-auto flex items-center justify-between"
+        className="relative z-10 max-w-7xl w-full mx-auto flex items-center justify-between"
       >
         <SoftlanBrand />
 
-        <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-xs font-mono text-slate-300">
+        <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full theme-pill text-xs font-mono">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           TELEMETRIA & AUDITORIA v2.6
         </div>
       </motion.header>
 
-      {/* Center Hero Section */}
-      <main className="max-w-7xl w-full mx-auto grid lg:grid-cols-12 gap-12 items-center my-auto py-12">
+      <main className="relative z-10 max-w-7xl w-full mx-auto grid lg:grid-cols-12 gap-12 items-center my-auto py-10">
         <div className="lg:col-span-7 space-y-6">
           <motion.div
             initial={{ opacity: 0, x: -24 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.75, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ff5a1f]/15 border border-[#ff5a1f]/35 text-[#ff7b47] text-xs font-semibold tracking-wider uppercase"
+            transition={{ duration: 0.75, delay: 0.1 }}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full theme-pill theme-accent-text text-xs font-semibold tracking-wider uppercase"
           >
             <Activity className="w-3.5 h-3.5" />
             Governança • Provimento CNJ • Continuidade
@@ -126,20 +130,18 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
           <motion.h1
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.85, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-[1.04]"
+            transition={{ duration: 0.85, delay: 0.18 }}
+            className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.04] theme-text-primary"
           >
             Auditoria técnica de{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff5a1f] via-[#ff8759] to-slate-200">
-              precisão executiva.
-            </span>
+            <span className="theme-accent-text">precisão executiva.</span>
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.85, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="text-slate-400 text-base sm:text-lg max-w-2xl leading-relaxed"
+            transition={{ duration: 0.85, delay: 0.28 }}
+            className="theme-text-muted text-base sm:text-lg max-w-2xl leading-relaxed"
           >
             Consolidação automatizada de chamados GLPI, cronogramas de adequação ao Provimento CNJ,
             telemetria de endpoints Bitdefender GravityZone e auditoria de backups em nuvem em um
@@ -150,7 +152,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.85, delay: 0.38 }}
-            className="grid grid-cols-3 gap-4 pt-2 max-w-xl"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 max-w-xl"
           >
             {[
               { icon: ShieldCheck, label: "GravityZone", sub: "Segurança Ativa" },
@@ -158,38 +160,35 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
               { icon: Activity, label: "Backblaze & Zabbix", sub: "SLA Contínuo" },
             ].map((item) => (
               <div key={item.label} className="squircle-card p-3.5">
-                <item.icon className="w-4 h-4 text-[#ff5a1f] mb-1.5" />
-                <div className="text-xs font-bold text-white">{item.label}</div>
-                <div className="text-[11px] text-slate-400">{item.sub}</div>
+                <item.icon className="w-4 h-4 theme-accent-text mb-1.5" />
+                <div className="text-xs font-bold">{item.label}</div>
+                <div className="text-[11px] theme-text-muted">{item.sub}</div>
               </div>
             ))}
           </motion.div>
         </div>
 
-        {/* Parallax Auth Card */}
         <motion.div
           style={{ rotateX, rotateY, transformPerspective: 1100 }}
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.9, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.9, delay: 0.22 }}
           className="lg:col-span-5"
         >
           <div className="squircle-card p-8 sm:p-10 relative overflow-hidden">
-            <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full bg-[#ff5a1f]/20 blur-3xl pointer-events-none" />
-
-            <div className="flex items-center gap-2 text-xs font-mono text-[#ff7b47] uppercase tracking-widest mb-3">
+            <div className="flex items-center gap-2 text-xs font-mono theme-accent-text uppercase tracking-widest mb-3">
               <Lock className="w-3.5 h-3.5" />
               Acesso Corporativo Restrito
             </div>
 
-            <h2 className="text-2xl font-bold text-white mb-2">Portal de Auditoria</h2>
-            <p className="text-sm text-slate-400 mb-8">
+            <h2 className="text-2xl font-bold mb-2">Portal de Auditoria</h2>
+            <p className="text-sm theme-text-muted mb-8">
               Autentique-se utilizando sua conta institucional{" "}
-              <span className="text-slate-200 font-semibold">@softlanti.com.br</span> no Google
+              <span className="font-semibold theme-text-primary">@softlanti.com.br</span> no Google
               Workspace.
             </p>
 
-            <div className="flex flex-col items-center justify-center py-4 px-4 rounded-2xl bg-white/[0.02] border border-white/10">
+            <div className="flex flex-col items-center justify-center py-4 px-4 rounded-2xl theme-pill">
               <div ref={googleBtnRef} className="min-h-[44px] flex items-center justify-center" />
               {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
                 <button
@@ -209,35 +208,35 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
                       setLoading(false);
                     }
                   }}
-                  className="w-full py-3 px-5 rounded-full bg-[#ff5a1f] hover:bg-[#ff6d38] text-white font-bold text-sm bloom-orange transition cursor-pointer"
+                  className="w-full py-3 px-5 rounded-full theme-accent-bg font-bold text-sm transition cursor-pointer"
                 >
                   Entrar no Ambiente Local (Modo Teste)
                 </button>
               )}
               {loading && (
-                <span className="mt-3 text-xs font-mono text-[#ff7b47] animate-pulse">
+                <span className="mt-3 text-xs font-mono theme-accent-text animate-pulse">
                   Validando credenciais Workspace...
                 </span>
               )}
             </div>
 
             {error && (
-              <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300">
+              <div className="mt-4 p-3 rounded-xl bg-red-500/15 border border-red-500/40 text-xs text-red-400">
                 {error}
               </div>
             )}
 
-            <div className="mt-8 pt-5 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+            <div className="mt-8 pt-5 border-t border-current/10 flex items-center justify-between text-[11px] theme-text-muted font-mono">
               <span>SSO OAuth 2.0 • TLS 1.3</span>
-              <span>Softlan TI © 2026</span>
+              <span>© 2026 Gustavo Prestes</span>
             </div>
           </div>
         </motion.div>
       </main>
 
-      <footer className="max-w-7xl w-full mx-auto flex flex-wrap justify-between items-center text-xs text-slate-500 font-mono">
-        <span>Rua João Negrão, 731 • Curitiba - PR</span>
-        <span>Uso interno exclusivo • Equipe Técnica Softlan TI</span>
+      <footer className="relative z-10 max-w-7xl w-full mx-auto pt-4 border-t border-current/10 flex flex-wrap justify-between items-center gap-2 text-xs theme-text-muted font-mono">
+        <span>© 2026 Gustavo Prestes • Todos os direitos reservados.</span>
+        <span>Desenvolvido e mantido por Gustavo Prestes</span>
       </footer>
     </div>
   );
