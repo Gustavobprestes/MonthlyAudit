@@ -188,6 +188,7 @@ async def update_user_role(
 
 
 @router.get("/discovery/sources")
+@router.get("/integrations/discover")
 async def discover_external_sources(admin: dict = Depends(require_admin)):
     """Busca simultaneamente entidades GLPI, empresas Bitdefender e hosts Zabbix."""
     glpi = GLPIService()
@@ -374,6 +375,7 @@ async def collect_audit_preview(
         "bitdefender_summary": normalized_bd,
         "backup_summary": normalized_backup,
     }
+
 
 @router.post("/audit/export-pdf")
 async def export_audit_pdf(

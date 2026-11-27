@@ -1,6 +1,5 @@
 import calendar
 import logging
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 import httpx
@@ -10,12 +9,12 @@ logger = logging.getLogger("softlan.zabbix")
 
 
 def _normalize_zabbix_url(raw_url: str) -> str:
-    url = raw_url.strip().rstrip("/")
-    if not url:
+    clean = raw_url.strip().rstrip("/")
+    if not clean:
         return ""
-    if not url.endswith("api_jsonrpc.php"):
-        return f"{url}/api_jsonrpc.php"
-    return url
+    if clean.endswith("api_jsonrpc.php"):
+        return clean
+    return f"{clean}/api_jsonrpc.php"
 
 
 def _month_epoch_bounds(reference_month: str | None) -> tuple[int, int]:
@@ -42,53 +41,86 @@ class ZabbixService:
     def __init__(self) -> None:
         self.api_url = _normalize_zabbix_url(settings.ZABBIX_API_URL)
         self.api_token = settings.ZABBIX_API_TOKEN.strip()
+        self.zbx_user = settings.ZABBIX_USER.strip()
+        self.zbx_password = settings.ZABBIX_PASSWORD.strip()
         self.backup_group = settings.ZABBIX_BACKUP_GROUP.strip() or "LogsBackups"
+        self._session_token: str | None = None
 
-    async def _rpc(self, method: str, params: dict[str, Any]) -> Any:
-        if not self.api_token or not self.api_url:
+    async def _login_with_credentials(self, client: httpx.AsyncClient) -> str | None:
+        """Realiza login via user.login caso ZABBIX_USER e ZABBIX_PASSWORD estejam configurados."""
+        if not self.zbx_user or not self.zbx_password:
             return None
-
-        headers_bearer = {
-            "Content-Type": "application/json-rpc",
-            "Authorization": f"Bearer {self.api_token}",
-        }
-        payload_bearer: dict[str, Any] = {
+        payload = {
             "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
+            "method": "user.login",
+            "params": {"username": self.zbx_user, "password": self.zbx_password},
             "id": 1,
         }
+        resp = await client.post(
+            self.api_url,
+            json=payload,
+            headers={"Content-Type": "application/json-rpc"},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if "result" in data:
+            self._session_token = str(data["result"])
+            return self._session_token
+        return None
 
-        async with httpx.AsyncClient(timeout=25.0, verify=False) as client:
-            resp = await client.post(self.api_url, json=payload_bearer, headers=headers_bearer)
+    async def _rpc(self, method: str, params: dict[str, Any]) -> Any:
+        if not self.api_url:
+            return None
+
+        async with httpx.AsyncClient(timeout=20.0, verify=False) as client:
+            token = self._session_token or self.api_token
+            if not token and self.zbx_user and self.zbx_password:
+                token = await self._login_with_credentials(client)
+
+            if not token:
+                logger.warning("Zabbix não configurado: defina ZABBIX_API_TOKEN no .env.")
+                return None
+
+            headers = {
+                "Content-Type": "application/json-rpc",
+                "Authorization": f"Bearer {token}",
+            }
+            payload: dict[str, Any] = {
+                "jsonrpc": "2.0",
+                "method": method,
+                "params": params,
+                "id": 1,
+            }
+
+            resp = await client.post(self.api_url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
 
             if "error" in data:
-                payload_legacy = {
-                    "jsonrpc": "2.0",
-                    "method": method,
-                    "params": params,
-                    "auth": self.api_token,
-                    "id": 1,
-                }
-                resp_legacy = await client.post(
-                    self.api_url,
-                    json=payload_legacy,
-                    headers={"Content-Type": "application/json-rpc"},
+                err_data = str(data["error"].get("data", ""))
+                # Se o token estático falhou e existem credenciais de usuário no .env, tenta user.login
+                if "Session terminated" in err_data and self.zbx_user and self.zbx_password:
+                    new_token = await self._login_with_credentials(client)
+                    if new_token:
+                        headers["Authorization"] = f"Bearer {new_token}"
+                        resp_retry = await client.post(self.api_url, json=payload, headers=headers)
+                        resp_retry.raise_for_status()
+                        data_retry = resp_retry.json()
+                        if "result" in data_retry:
+                            return data_retry["result"]
+
+                logger.error(
+                    "Falha na API Zabbix (%s): %s — Verifique se ZABBIX_API_TOKEN no .env é um API Token válido gerado em Users -> API tokens no Zabbix.",
+                    method,
+                    data["error"],
                 )
-                resp_legacy.raise_for_status()
-                data_legacy = resp_legacy.json()
-                if "error" in data_legacy:
-                    logger.error("Erro Zabbix RPC (%s): %s", method, data_legacy["error"])
-                    raise RuntimeError(f"Zabbix RPC ({method}): {data_legacy['error']}")
-                return data_legacy.get("result")
+                raise RuntimeError(f"Zabbix RPC ({method}): {data['error']}")
 
             return data.get("result")
 
     async def list_backup_hosts(self) -> list[dict[str, Any]]:
         """Lista todos os hosts de clientes criados via LLD no grupo LogsBackups."""
-        if not self.api_token or not self.api_url:
+        if not self.api_url or (not self.api_token and not self.zbx_user):
             return []
         try:
             groups = await self._rpc(
@@ -110,7 +142,6 @@ class ZabbixService:
 
             hosts = await self._rpc("host.get", host_params)
 
-            # Fallback: busca todos os hosts visíveis e filtra os que possuem chaves backup.item / disk.space
             if not hosts:
                 all_hosts = await self._rpc(
                     "host.get",
@@ -147,14 +178,14 @@ class ZabbixService:
 
             return sorted(result, key=lambda x: x["slug"].lower())
         except Exception as exc:
-            logger.exception("Falha ao listar hosts do Zabbix em %s: %s", self.api_url, exc)
+            logger.error("Não foi possível carregar hosts do Zabbix: %s", exc)
             return []
 
     async def collect_backup_audit(
         self, host_slug: str | None, reference_month: str | None = None
     ) -> dict[str, Any]:
         """Coleta rotinas de backup (1=Funcional, 0=Com Falha), SLA mensal, timeline diária e espaço em disco."""
-        if not self.api_token or not host_slug:
+        if not host_slug or not self.api_url:
             return {}
 
         try:
@@ -197,11 +228,9 @@ class ZabbixService:
                 last_clock = int(item.get("lastclock", 0))
                 last_val_raw = str(item.get("lastvalue", "")).strip()
 
-                # Ignora o item auxiliar disk.space.status (usamos disk.space.pct para o percentual real)
                 if key_.startswith("disk.space.status["):
                     continue
 
-                # 1. Coleta de Espaço em Disco (disk.space.pct[cliente,arquivo,mount])
                 if (
                     key_.startswith("disk.space.pct[")
                     or "espaco" in item_name.lower()
@@ -227,7 +256,6 @@ class ZabbixService:
                         pass
                     continue
 
-                # 2. Coleta de Rotinas de Backup (backup.item[cliente,arquivo])
                 if not key_.startswith("backup.item[") and last_clock == 0:
                     continue
 
@@ -244,7 +272,6 @@ class ZabbixService:
                 except ValueError:
                     is_ok = last_val_raw.lower() in ("1", "ok", "sucesso", "operante", "funcional")
 
-                # Consulta histórico da competência no Zabbix para SLA mensal + Timeline diária
                 sla_percent = 100.0 if is_ok else 0.0
                 total_checks = 0
                 ok_checks = 0
@@ -265,7 +292,6 @@ class ZabbixService:
                         },
                     )
                     if history:
-                        # Consolida por dia (se houve ao menos um 1 no dia, o dia foi Funcional)
                         by_day: dict[str, bool] = {}
                         for h in history:
                             clk = int(h.get("clock", 0))
@@ -341,7 +367,7 @@ class ZabbixService:
                 "analyst_note": analyst_note,
             }
         except Exception as exc:
-            logger.exception("Erro ao coletar backup Zabbix para %s: %s", host_slug, exc)
+            logger.error("Erro ao coletar backup Zabbix para %s: %s", host_slug, exc)
             return {
                 "host_slug": host_slug,
                 "overall_sla_percent": 0.0,
