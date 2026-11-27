@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MonthYearPicker } from "../components/MonthYearPicker";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -25,6 +25,9 @@ import {
   User as UserIcon,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
+  HeartPulse,
+  Filter,
 } from "lucide-react";
 import { HeroShaderCanvas } from "../components/HeroShaderCanvas";
 import { SoftlanBrand } from "../components/SoftlanBrand";
@@ -70,6 +73,15 @@ const THEMES: { value: AppTheme; label: string; sublabel: string }[] = [
   { value: "cyberpunk", label: "Cyberpunk 2077", sublabel: "Neon Amarelo & Ciano" },
 ];
 
+/** Normaliza texto para busca inteligente sem acentos e case-insensitive */
+function normalizeSearch(text: string): string {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function isServerAsset(name: string, os: string): boolean {
   const combined = `${name} ${os}`.toLowerCase();
   return (
@@ -108,6 +120,14 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
+
+  // Estados de Busca Inteligente e Filtros
+  const [assetSearch, setAssetSearch] = useState("");
+  const [assetStatusFilter, setAssetStatusFilter] = useState<"all" | "protected" | "blocked">("all");
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyMonthFilter, setHistoryMonthFilter] = useState("");
+  const [adminEcoSearch, setAdminEcoSearch] = useState("");
+  const [adminCnjOnly, setAdminCnjOnly] = useState(false);
 
   const [auditData, setAuditData] = useState<AuditPayload | null>(null);
   const [collecting, setCollecting] = useState(false);
@@ -167,6 +187,8 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     if (!selectedClientId) return;
     setCollecting(true);
     setTab("audit");
+    setAssetSearch("");
+    setAssetStatusFilter("all");
     try {
       const data = await apiFetch<AuditPayload>(
         `/api/v1/audit/collect/${selectedClientId}?month=${referenceMonth}`
@@ -177,6 +199,24 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
       notify(err instanceof Error ? err.message : "Erro ao coletar dados.");
     } finally {
       setCollecting(false);
+    }
+  };
+
+  const handleDeleteHistory = async (item: HistoryRecord) => {
+    if (!isAdmin) return;
+    if (
+      !window.confirm(
+        `Excluir definitivamente o relatório "${item.client_name}" (${item.reference_month}) do histórico?`
+      )
+    ) {
+      return;
+    }
+    try {
+      await apiFetch(`/api/v1/audit/history/${item.id}`, { method: "DELETE" });
+      setHistory((prev) => prev.filter((h) => h.id !== item.id));
+      notify("Registro removido do histórico de PDFs.");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Erro ao excluir registro do histórico.");
     }
   };
 
@@ -270,9 +310,51 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     }
   };
 
+  // Listas filtradas com busca inteligente sem acentos
+  const filteredUnifiedAssets = useMemo(() => {
+    const base = auditData?.unified_assets ?? [];
+    const term = normalizeSearch(assetSearch);
+    return base.filter((asset) => {
+      if (assetStatusFilter === "protected" && !asset.is_protected) return false;
+      if (assetStatusFilter === "blocked" && asset.blocked_count === 0 && asset.is_protected)
+        return false;
+      if (!term) return true;
+      const haystack = normalizeSearch(
+        `${asset.endpoint_id} ${asset.hostname} ${asset.ip} ${asset.os} ${asset.cpu} ${asset.ram} ${asset.gpu} ${asset.remediation_status}`
+      );
+      return term.split(/\s+/).every((token) => haystack.includes(token));
+    });
+  }, [auditData?.unified_assets, assetSearch, assetStatusFilter]);
+
+  const filteredHistory = useMemo(() => {
+    const term = normalizeSearch(historySearch);
+    return history.filter((item) => {
+      if (historyMonthFilter && !item.reference_month.includes(historyMonthFilter.trim())) {
+        return false;
+      }
+      if (!term) return true;
+      const haystack = normalizeSearch(
+        `${item.client_name} ${item.reference_month} ${item.template_name} ${item.sha256_hash} ${item.generated_by}`
+      );
+      return term.split(/\s+/).every((token) => haystack.includes(token));
+    });
+  }, [history, historySearch, historyMonthFilter]);
+
+  const filteredAdminClients = useMemo(() => {
+    const term = normalizeSearch(adminEcoSearch);
+    return clients.filter((c) => {
+      if (adminCnjOnly && !c.is_cartorio) return false;
+      if (!term) return true;
+      const haystack = normalizeSearch(
+        `${c.display_name} ${c.glpi_entity_id} ${c.bitdefender_company_id || ""} ${c.zabbix_host_slug || ""}`
+      );
+      return term.split(/\s+/).every((token) => haystack.includes(token));
+    });
+  }, [clients, adminEcoSearch, adminCnjOnly]);
+
   const backupChannels = auditData?.backup_summary?.active_channels ?? [];
-  const inventoryMachines = auditData?.glpi_summary?.inventory?.machines ?? [];
   const cnjTasks = auditData?.provimento_cnj?.tasks ?? [];
+  const plantaoObitoList = auditData?.plantao_obito ?? [];
 
   const SidebarBody = () => (
     <div className="flex flex-col h-full justify-between p-5">
@@ -636,7 +718,8 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                         <h3 className="text-sm font-bold">Pronto para Consolidar Telemetria</h3>
                         <p className="text-xs theme-text-muted max-w-md mx-auto">
                           Selecione um cliente mapeado e a competência desejada acima para extrair
-                          chamados GLPI, licenciamento Bitdefender e SLA de backups Backblaze/Zabbix.
+                          chamados GLPI, Plantão do Óbito, licenciamento Bitdefender e SLA de
+                          backups Backblaze/Zabbix.
                         </p>
                       </div>
                     )
@@ -669,10 +752,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                           <div className="space-y-2 pt-2">
                             {[
                               { key: "show_glpi_tickets", label: "Chamados & Incidências GLPI" },
+                              { key: "show_plantao_obito", label: "Relatório Plantão do Óbito" },
                               { key: "show_provimento_cnj", label: "Cronograma Provimento CNJ" },
                               { key: "show_bitdefender", label: "Segurança Bitdefender GravityZone" },
                               { key: "show_backups", label: "Auditoria de Backups (Zabbix / B2)" },
-                              { key: "show_glpi_inventory", label: "Inventário Hardware & Antivírus" },
+                              { key: "show_glpi_inventory", label: "Inventário Unificado & EDR" },
                             ].map((toggle) => (
                               <label
                                 key={toggle.key}
@@ -777,6 +861,8 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                               {auditData.bitdefender_summary
                                 ? `Validade: ${
                                     auditData.bitdefender_summary.expiration_date || "Não informada"
+                                  } • Bloqueios: ${
+                                    auditData.bitdefender_summary.total_blocked_events ?? 0
                                   }`
                                 : "Empresa não vinculada"}
                             </div>
@@ -801,6 +887,166 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                             </div>
                           </div>
                         </div>
+
+                        {/* Relatório Plantão do Óbito */}
+                        {auditData.show_plantao_obito && plantaoObitoList.length > 0 && (
+                          <div className="squircle-card p-6 space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <HeartPulse className="w-4 h-4 theme-accent-text" />
+                                <h3 className="text-sm font-bold uppercase tracking-wider">
+                                  Relatório Plantão do Óbito ({plantaoObitoList.length}{" "}
+                                  {plantaoObitoList.length === 1 ? "registro" : "registros"})
+                                </h3>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              {plantaoObitoList.map((po) => (
+                                <div key={po.ticket_id} className="p-4 rounded-2xl theme-pill space-y-2">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-xs font-bold">
+                                      #{po.ticket_id} — {po.title}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase">
+                                      {po.status}
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] font-mono theme-text-muted flex flex-wrap gap-x-4 gap-y-1">
+                                    <span>Abertura: {po.opened_at}</span>
+                                    <span>Encerramento: {po.closed_at}</span>
+                                    <span className="theme-accent-text font-semibold">
+                                      Técnico: {po.technician}
+                                    </span>
+                                  </div>
+                                  <div className="p-3 rounded-xl bg-black/15 text-xs leading-relaxed">
+                                    <span className="font-bold uppercase text-[10px] font-mono theme-text-muted block mb-1">
+                                      Validação de Encerramento:
+                                    </span>
+                                    {po.validation_text}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Tabela Unificada de Inventário GLPI + Bitdefender GravityZone com Busca Inteligente */}
+                        {(auditData.show_glpi_inventory || auditData.show_bitdefender) &&
+                          (auditData.unified_assets?.length ?? 0) > 0 && (
+                            <div className="squircle-card p-6 space-y-4">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <Cpu className="w-4 h-4 theme-accent-text" />
+                                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                                    Inventário Unificado &amp; Telemetria Bitdefender (
+                                    {filteredUnifiedAssets.length} /{" "}
+                                    {auditData.unified_assets.length})
+                                  </h3>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="relative">
+                                    <Search className="w-3.5 h-3.5 theme-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <input
+                                      type="text"
+                                      value={assetSearch}
+                                      onChange={(e) => setAssetSearch(e.target.value)}
+                                      placeholder="Buscar hostname, IP, ID, CPU, SO..."
+                                      className="theme-input rounded-xl pl-8 pr-3 py-1.5 text-xs w-56"
+                                    />
+                                  </div>
+
+                                  <div className="flex items-center gap-1 p-1 rounded-xl theme-pill text-[11px]">
+                                    {[
+                                      { id: "all", label: "Todos" },
+                                      { id: "protected", label: "Protegidos" },
+                                      { id: "blocked", label: "Com Bloqueios" },
+                                    ].map((f) => (
+                                      <button
+                                        key={f.id}
+                                        type="button"
+                                        onClick={() =>
+                                          setAssetStatusFilter(f.id as "all" | "protected" | "blocked")
+                                        }
+                                        className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                                          assetStatusFilter === f.id
+                                            ? "theme-accent-bg"
+                                            : "theme-text-muted hover:opacity-85"
+                                        }`}
+                                      >
+                                        {f.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                  <thead className="border-b border-current/15 theme-text-muted font-mono text-[10px] uppercase">
+                                    <tr>
+                                      <th className="py-2 pr-3">ID EDR</th>
+                                      <th className="py-2 pr-3">Hostname / Estação</th>
+                                      <th className="py-2 pr-3">IP</th>
+                                      <th className="py-2 pr-3">Hardware (CPU / RAM / GPU)</th>
+                                      <th className="py-2 pr-3">SO</th>
+                                      <th className="py-2 pr-3 text-center">Bloqueios</th>
+                                      <th className="py-2">Mitigação / Proteção</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-current/10">
+                                    {filteredUnifiedAssets.map((asset) => {
+                                      const serverType = isServerAsset(asset.hostname, asset.os);
+                                      return (
+                                        <tr key={`${asset.hostname}-${asset.endpoint_id}`}>
+                                          <td className="py-2.5 pr-3 font-mono text-[11px] theme-text-muted whitespace-nowrap">
+                                            {asset.endpoint_id.slice(0, 10)}
+                                          </td>
+                                          <td className="py-2.5 pr-3 font-bold whitespace-nowrap">
+                                            <span className="inline-flex items-center gap-2">
+                                              {serverType ? (
+                                                <RackServerIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                              ) : (
+                                                <WorkstationDesktopIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                              )}
+                                              <span>{asset.hostname}</span>
+                                            </span>
+                                          </td>
+                                          <td className="py-2.5 pr-3 font-mono text-[11px] whitespace-nowrap">
+                                            {asset.ip}
+                                          </td>
+                                          <td className="py-2.5 pr-3 theme-text-muted">
+                                            {asset.cpu} •{" "}
+                                            <span className="theme-accent-text font-mono font-bold">
+                                              {asset.ram}
+                                            </span>{" "}
+                                            • {asset.gpu}
+                                          </td>
+                                          <td className="py-2.5 pr-3 theme-text-muted">{asset.os}</td>
+                                          <td className="py-2.5 pr-3 text-center font-mono font-bold">
+                                            {asset.blocked_count}
+                                          </td>
+                                          <td className="py-2.5 whitespace-nowrap">
+                                            <span
+                                              className={`inline-flex items-center gap-1.5 font-semibold ${
+                                                asset.is_protected
+                                                  ? "text-emerald-500"
+                                                  : "text-amber-500"
+                                              }`}
+                                            >
+                                              <EndpointAntivirusIcon className="w-3.5 h-3.5 shrink-0" />
+                                              <span>{asset.remediation_status}</span>
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
 
                         {auditData.show_backups &&
                           auditData.backup_summary &&
@@ -940,70 +1186,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                             </div>
                           </div>
                         )}
-
-                        {auditData.show_glpi_inventory && inventoryMachines.length > 0 && (
-                          <div className="squircle-card p-6 space-y-4">
-                            <div className="flex items-center gap-2">
-                              <Cpu className="w-4 h-4 theme-accent-text" />
-                              <h3 className="text-sm font-bold uppercase tracking-wider">
-                                Inventário de Hardware & Antivírus (
-                                {auditData.glpi_summary?.inventory?.total_machines ??
-                                  inventoryMachines.length}{" "}
-                                máquinas)
-                              </h3>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left text-xs">
-                                <thead className="border-b border-current/15 theme-text-muted font-mono text-[10px] uppercase">
-                                  <tr>
-                                    <th className="py-2 pr-3">Ativo / Estação</th>
-                                    <th className="py-2 pr-3">Processador</th>
-                                    <th className="py-2 pr-3">RAM</th>
-                                    <th className="py-2 pr-3">Placa de Vídeo</th>
-                                    <th className="py-2 pr-3">SO</th>
-                                    <th className="py-2">Antivírus</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-current/10">
-                                  {inventoryMachines.map((m) => {
-                                    const serverType = isServerAsset(m.name, m.os);
-                                    return (
-                                      <tr key={m.name}>
-                                        <td className="py-2.5 pr-3 font-bold whitespace-nowrap">
-                                          <span className="inline-flex items-center gap-2">
-                                            {serverType ? (
-                                              <RackServerIcon className="w-4 h-4 theme-accent-text shrink-0" />
-                                            ) : (
-                                              <WorkstationDesktopIcon className="w-4 h-4 theme-accent-text shrink-0" />
-                                            )}
-                                            <span>{m.name}</span>
-                                          </span>
-                                        </td>
-                                        <td className="py-2.5 pr-3 theme-text-muted">
-                                          {m.cpu || "Não informado"}
-                                        </td>
-                                        <td className="py-2.5 pr-3 theme-accent-text font-mono font-bold whitespace-nowrap">
-                                          {m.ram || "-"}
-                                        </td>
-                                        <td className="py-2.5 pr-3 theme-text-muted">
-                                          {m.gpu || "Integrada"}
-                                        </td>
-                                        <td className="py-2.5 pr-3 theme-text-muted">{m.os}</td>
-                                        <td className="py-2.5 text-emerald-500 font-semibold">
-                                          <span className="inline-flex items-center gap-1.5">
-                                            <EndpointAntivirusIcon className="w-3.5 h-3.5 shrink-0" />
-                                            <span>{m.antivirus || "Não detectado"}</span>
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
                       </section>
                     </motion.div>
                   )}
@@ -1016,21 +1198,63 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -12 }}
-                  className="squircle-card p-6"
+                  className="squircle-card p-6 space-y-5"
                 >
-                  <h2 className="text-lg font-bold mb-4">
-                    Histórico Imutável de Relatórios Gerados
-                  </h2>
-                  {history.length === 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-bold">
+                        Histórico Imutável de Relatórios Gerados
+                      </h2>
+                      <p className="text-xs theme-text-muted">
+                        Pesquise por cliente, competência, modelo ou assinatura SHA-256.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 theme-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={historySearch}
+                          onChange={(e) => setHistorySearch(e.target.value)}
+                          placeholder="Pesquisar cliente, hash ou autor..."
+                          className="theme-input rounded-xl pl-8 pr-3 py-2 text-xs w-64"
+                        />
+                      </div>
+
+                      <input
+                        type="month"
+                        value={historyMonthFilter}
+                        onChange={(e) => setHistoryMonthFilter(e.target.value)}
+                        className="theme-input rounded-xl px-3 py-2 text-xs"
+                        title="Filtrar por competência"
+                      />
+
+                      {(historySearch || historyMonthFilter) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHistorySearch("");
+                            setHistoryMonthFilter("");
+                          }}
+                          className="px-3 py-2 rounded-xl theme-pill text-xs font-semibold cursor-pointer"
+                        >
+                          Limpar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {filteredHistory.length === 0 ? (
                     <div className="py-10 text-center space-y-3">
                       <EmptyHistoryVaultIllustration />
                       <p className="text-sm theme-text-muted">
-                        Nenhum relatório emitido até o momento.
+                        Nenhum relatório encontrado para os critérios pesquisados.
                       </p>
                     </div>
                   ) : (
                     <div className="divide-y divide-current/10">
-                      {history.map((item) => (
+                      {filteredHistory.map((item) => (
                         <div
                           key={item.id}
                           className="py-4 flex flex-wrap items-center justify-between gap-4"
@@ -1042,12 +1266,26 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                             </div>
                             <CryptographicAuditSeal hash={item.sha256_hash} />
                           </div>
-                          <a
-                            href={`/api/v1/audit/history/${item.id}/reprint`}
-                            className="px-4 py-2 rounded-xl theme-accent-bg text-xs font-semibold transition"
-                          >
-                            Baixar 2ª Via PDF
-                          </a>
+
+                          <div className="flex items-center gap-2.5">
+                            <a
+                              href={`/api/v1/audit/history/${item.id}/reprint`}
+                              className="px-4 py-2 rounded-xl theme-accent-bg text-xs font-semibold transition"
+                            >
+                              Baixar 2ª Via PDF
+                            </a>
+
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteHistory(item)}
+                                className="p-2 rounded-xl theme-pill hover:bg-red-500/20 text-red-500 transition cursor-pointer"
+                                title="Excluir relatório do histórico (Admin)"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1070,33 +1308,57 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                           Gestão de Ecossistemas (Banco de Dados)
                         </h2>
                         <p className="text-xs theme-text-muted">
-                          Crie, edite ou exclua vínculos entre GLPI, Bitdefender GravityZone e Zabbix.
+                          Crie, pesquise, edite ou exclua vínculos entre GLPI, Bitdefender e Zabbix.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingClient(null);
-                          setModalOpen(true);
-                        }}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl theme-accent-bg text-xs font-bold cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Criar Novo Ecossistema
-                      </button>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 theme-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={adminEcoSearch}
+                            onChange={(e) => setAdminEcoSearch(e.target.value)}
+                            placeholder="Filtrar ecossistema, ID ou slug..."
+                            className="theme-input rounded-xl pl-8 pr-3 py-2 text-xs w-60"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setAdminCnjOnly((prev) => !prev)}
+                          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            adminCnjOnly ? "theme-accent-bg" : "theme-pill"
+                          }`}
+                        >
+                          <Filter className="w-3.5 h-3.5" />
+                          Serventias CNJ
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingClient(null);
+                            setModalOpen(true);
+                          }}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl theme-accent-bg text-xs font-bold cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Criar Novo Ecossistema
+                        </button>
+                      </div>
                     </div>
 
-                    {clients.length === 0 ? (
+                    {filteredAdminClients.length === 0 ? (
                       <div className="squircle-card p-10 text-center space-y-3">
                         <EmptyAuditStudioIllustration />
                         <p className="text-sm theme-text-muted">
-                          Nenhum ecossistema cadastrado no PostgreSQL. Clique em &ldquo;Criar Novo
-                          Ecossistema&rdquo;.
+                          Nenhum ecossistema encontrado com os filtros atuais.
                         </p>
                       </div>
                     ) : (
                       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-                        {clients.map((c) => (
+                        {filteredAdminClients.map((c) => (
                           <div
                             key={c.id}
                             className="squircle-card p-5 flex flex-col justify-between gap-4"

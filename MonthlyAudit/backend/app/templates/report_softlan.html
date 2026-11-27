@@ -1,544 +1,503 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<style>
-  @page {
-    size: A4;
-    margin: 24mm 14mm 20mm 14mm;
-    @top-left {
-      content: "SOFTLAN TI — SOLUÇÕES EM TECNOLOGIA";
-      font-family: 'Inter', 'Liberation Sans', sans-serif;
-      font-size: 7.5pt;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      color: #475569;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 4px;
-      margin-bottom: 6px;
+  <meta charset="UTF-8" />
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 14mm 20mm 14mm;
+      @bottom-left {
+        content: "Softlan TI • Rua João Negrão, 731 • Curitiba - PR | Documento Confidencial";
+        font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 7.5pt;
+        color: #64748b;
+      }
+      @bottom-right {
+        content: "Página " counter(page) " de " counter(pages);
+        font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 7.5pt;
+        font-weight: 700;
+        color: #0f172a;
+      }
     }
-    @top-right {
-      content: "AUDITORIA TÉCNICA • {{ data.reference_month }}";
-      font-family: 'Inter', 'Liberation Sans', sans-serif;
-      font-size: 7.5pt;
-      font-weight: 600;
-      color: #ff5a1f;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 4px;
-      margin-bottom: 6px;
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    @bottom-left {
-      content: "Softlan TI • Rua João Negrão, 731 • Curitiba - PR | Documento Confidencial";
-      font-family: 'Inter', 'Liberation Sans', sans-serif;
-      font-size: 7pt;
-      color: #64748b;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 4px;
-    }
-    @bottom-right {
-      content: "Página " counter(page) " de " counter(pages);
-      font-family: 'Inter', 'Liberation Sans', sans-serif;
-      font-size: 7.5pt;
-      font-weight: 700;
+
+    body {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
       color: #0f172a;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 4px;
+      font-size: 8.8pt;
+      line-height: 1.42;
     }
-  }
 
-  body {
-    font-family: 'Inter', 'Liberation Sans', sans-serif;
-    color: #0f172a;
-    font-size: 9pt;
-    line-height: 1.45;
-    margin: 0;
-  }
+    .header-banner {
+      background: linear-gradient(135deg, #0b1120 0%, #1e293b 100%);
+      color: #ffffff;
+      padding: 18px 22px;
+      border-radius: 12px;
+      border-bottom: 4px solid #ff5a1f;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-  .header {
-    background: linear-gradient(135deg, #090d16 0%, #111827 100%);
-    color: #ffffff;
-    padding: 18px 22px;
-    border-radius: 10px;
-    border-bottom: 4px solid #ff5a1f;
-    display: table;
-    width: 100%;
-    box-sizing: border-box;
-    margin-bottom: 16px;
-  }
+    .brand-title {
+      font-size: 16pt;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
 
-  .header-left {
-    display: table-cell;
-    vertical-align: middle;
-  }
+    .brand-title span {
+      color: #ff5a1f;
+    }
 
-  .logo-cell {
-    display: inline-block;
-    vertical-align: middle;
-    margin-right: 18px;
-  }
+    .brand-sub {
+      font-size: 8pt;
+      color: #cbd5e1;
+      margin-top: 2px;
+    }
 
-  .brand-text-cell {
-    display: inline-block;
-    vertical-align: middle;
-  }
+    .meta-box {
+      text-align: right;
+      font-size: 8pt;
+      color: #e2e8f0;
+    }
 
-  .brand-title {
-    font-size: 16pt;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    color: #ffffff;
-    margin: 0;
-  }
-  .brand-title span { color: #ff5a1f; }
-  .brand-sub {
-    font-size: 7.5pt;
-    letter-spacing: 0.18em;
-    color: #94a3b8;
-    text-transform: uppercase;
-    margin-top: 3px;
-  }
+    .meta-box strong {
+      color: #ff5a1f;
+      font-size: 9.5pt;
+      display: block;
+    }
 
-  .meta-box {
-    display: table-cell;
-    vertical-align: middle;
-    text-align: right;
-    font-size: 8pt;
-    color: #cbd5e1;
-    line-height: 1.5;
-  }
+    .section {
+      margin-bottom: 16px;
+      page-break-inside: avoid;
+    }
 
-  .client-banner {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-left: 4px solid #ff5a1f;
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-  }
-  .client-name {
-    font-size: 12.5pt;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 3px 0;
-  }
-  .client-meta {
-    font-size: 8.2pt;
-    color: #475569;
-  }
+    .section-break-ok {
+      margin-bottom: 16px;
+    }
 
-  h2 {
-    font-size: 10pt;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #0f172a;
-    border-bottom: 1.5px solid #e2e8f0;
-    padding-bottom: 4px;
-    margin: 16px 0 9px 0;
-    page-break-after: avoid;
-  }
-  h2::before {
-    content: "▪ ";
-    color: #ff5a1f;
-  }
+    .section-title {
+      font-size: 10pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #0f172a;
+      border-bottom: 1.5px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-  .kpi-grid {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-    margin-bottom: 12px;
-    border-spacing: 8px 0;
-    margin-left: -8px;
-  }
-  .kpi-card {
-    display: table-cell;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 9px 11px;
-  }
-  .kpi-label {
-    font-size: 6.8pt;
-    text-transform: uppercase;
-    color: #64748b;
-    font-weight: 600;
-  }
-  .kpi-value {
-    font-size: 13pt;
-    font-weight: 800;
-    color: #0f172a;
-    margin-top: 2px;
-  }
-  .kpi-accent { color: #ff5a1f; }
+    .section-title::before {
+      content: "";
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      background-color: #ff5a1f;
+      border-radius: 1px;
+    }
 
-  table.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 12px;
-    font-size: 8pt;
-  }
-  table.data-table th {
-    background: #0f172a;
-    color: #ffffff;
-    text-align: left;
-    padding: 6px 8px;
-    font-weight: 600;
-  }
-  table.data-table td {
-    padding: 5.5px 8px;
-    border-bottom: 1px solid #e2e8f0;
-    vertical-align: top;
-  }
-  table.data-table tr:nth-child(even) td {
-    background: #f8fafc;
-  }
+    .summary-card {
+      background-color: #f8fafc;
+      border-left: 3.5px solid #ff5a1f;
+      padding: 11px 14px;
+      border-radius: 6px;
+      color: #334155;
+      font-size: 8.8pt;
+    }
 
-  table.inv-table {
-    font-size: 7.2pt;
-  }
-  table.inv-table th,
-  table.inv-table td {
-    padding: 5px 6px;
-  }
+    .kpi-grid {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+      border-spacing: 8px 0;
+      margin: 0 -8px 12px -8px;
+    }
 
-  .col-narrow {
-    width: 105px;
-  }
+    .kpi-card {
+      display: table-cell;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 9px;
+      padding: 10px 12px;
+      vertical-align: top;
+    }
 
-  .badge-ok {
-    background: #dcfce7;
-    color: #166534;
-    padding: 2px 7px;
-    border-radius: 99px;
-    font-weight: 700;
-    font-size: 7pt;
-    display: inline-block;
-  }
-  .badge-warn {
-    background: #ffedd5;
-    color: #9a3412;
-    padding: 2px 7px;
-    border-radius: 99px;
-    font-weight: 700;
-    font-size: 7pt;
-    display: inline-block;
-  }
+    .kpi-label {
+      font-size: 7pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
 
-  progress.cnj-progress {
-    width: 100%;
-    height: 9px;
-    border-radius: 99px;
-    overflow: hidden;
-    border: none;
-    background-color: #e2e8f0;
-    margin: 5px 0 10px 0;
-  }
-  progress.cnj-progress::-webkit-progress-bar {
-    background-color: #e2e8f0;
-  }
-  progress.cnj-progress::-webkit-progress-value {
-    background-color: #ff5a1f;
-  }
-  progress.cnj-progress::-moz-progress-bar {
-    background-color: #ff5a1f;
-  }
+    .kpi-value {
+      font-size: 14pt;
+      font-weight: 800;
+      color: #0f172a;
+    }
 
-  .note-box {
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    border-radius: 8px;
-    padding: 9px 12px;
-    font-size: 8pt;
-    color: #7c2d12;
-    margin-top: 6px;
-  }
+    .kpi-value.accent {
+      color: #ff5a1f;
+    }
 
-  .inventory-note {
-    font-size: 8.2pt;
-    color: #475569;
-    margin-bottom: 8px;
-  }
+    .kpi-value.emerald {
+      color: #059669;
+    }
 
-  .integrity-footer {
-    margin-top: 18px;
-    padding: 10px 14px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    display: table;
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 7.2pt;
-    color: #475569;
-  }
-  .integrity-left {
-    display: table-cell;
-    vertical-align: middle;
-  }
-  .integrity-right {
-    display: table-cell;
-    vertical-align: middle;
-    text-align: right;
-  }
-</style>
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7.8pt;
+    }
+
+    table.data-table th {
+      background-color: #0f172a;
+      color: #ffffff;
+      text-align: left;
+      padding: 6px 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 7pt;
+    }
+
+    table.data-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+
+    table.data-table tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+
+    .badge-ok {
+      background-color: #dcfce7;
+      color: #166534;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 7pt;
+      display: inline-block;
+    }
+
+    .badge-warn {
+      background-color: #fef3c7;
+      color: #92400e;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 7pt;
+      display: inline-block;
+    }
+
+    .badge-err {
+      background-color: #fee2e2;
+      color: #991b1b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 7pt;
+      display: inline-block;
+    }
+
+    .cnj-hero-box {
+      background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+      border: 1.5px solid #fdba74;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .cnj-percent-badge {
+      background-color: #ff5a1f;
+      color: #ffffff;
+      font-size: 18pt;
+      font-weight: 900;
+      padding: 6px 14px;
+      border-radius: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .obito-card {
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #0f172a;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      page-break-inside: avoid;
+    }
+
+    .obito-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 800;
+      font-size: 8.5pt;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .obito-meta {
+      font-size: 7.5pt;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+
+    .obito-validation {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 7px 9px;
+      font-size: 8pt;
+      color: #1e293b;
+    }
+  </style>
 </head>
 <body>
-
-  <div class="header">
-    <div class="header-left">
-      <div class="logo-cell">
-        <svg width="44" height="44" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M52 8H92V24C92 40 79 52 63 52H36V38H63C71 38 77 32 77 24V22H52C34 22 22 34 22 50V56H8V48C8 24 27 8 52 8Z" fill="#FFFFFF"/>
-          <path d="M48 92H8V76C8 60 21 48 37 48H64V62H37C29 62 23 68 23 76V78H48C66 78 78 66 78 50V44H92V52C92 76 73 92 48 92Z" fill="#FF5A1F"/>
-        </svg>
-      </div>
-      <div class="brand-text-cell">
-        <div class="brand-title">SOFTLAN <span>TI</span></div>
-        <div class="brand-sub">Soluções em Tecnologia • Auditoria Mensal</div>
-      </div>
+  <div class="header-banner">
+    <div>
+      <div class="brand-title">SOFTLAN <span>TI</span></div>
+      <div class="brand-sub">Relatório Executivo de Auditoria, Governança &amp; Telemetria</div>
     </div>
     <div class="meta-box">
-      <strong>Competência:</strong> {{ data.reference_month }}<br />
-      <strong>Emissão:</strong> {{ generated_at }}<br />
-      <strong>Modelo:</strong> {{ data.template_name }}
-    </div>
-  </div>
-
-  <div class="client-banner">
-    <div class="client-name">{{ data.client_name }}</div>
-    <div class="client-meta">
-      Relatório Executivo de Governança, Sustentação de TI, Segurança Cibernética e Continuidade Operacional
+      <strong>{{ data.client_name }}</strong>
+      <div>Competência: <b>{{ data.reference_month }}</b></div>
+      <div>Emitido em {{ generated_at }} por {{ generated_by }}</div>
     </div>
   </div>
 
   {% if data.executive_summary %}
-  <h2>Parecer Executivo da Engenharia</h2>
-  <p>{{ data.executive_summary }}</p>
+  <div class="section">
+    <div class="section-title">Parecer Executivo da Engenharia</div>
+    <div class="summary-card">{{ data.executive_summary }}</div>
+  </div>
   {% endif %}
 
   {% if data.show_glpi_tickets and data.glpi_summary %}
-  <h2>Sustentação & Atendimento Técnico (Service Desk)</h2>
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-label">Chamados no Período</div>
-      <div class="kpi-value">{{ data.glpi_summary.total_opened }}</div>
+  <div class="section">
+    <div class="section-title">Atendimentos &amp; Suporte Técnico (GLPI Service Desk)</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Chamados Abertos no Mês</div>
+        <div class="kpi-value">{{ data.glpi_summary.total_opened or 0 }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Chamados Concluídos</div>
+        <div class="kpi-value emerald">{{ data.glpi_summary.total_resolved or 0 }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Ativos Inventariados</div>
+        <div class="kpi-value">{{ (data.glpi_summary.inventory or {}).total_machines or 0 }}</div>
+      </div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Chamados Concluídos</div>
-      <div class="kpi-value kpi-accent">{{ data.glpi_summary.total_resolved }}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Em Tratamento</div>
-      <div class="kpi-value">{{ data.glpi_summary.total_in_progress }}</div>
-    </div>
-  </div>
 
-  {% if data.glpi_summary.top_incidences %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Categoria / Maior Incidência</th>
-        <th class="col-narrow">Ocorrências</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in data.glpi_summary.top_incidences %}
-      <tr>
-        <td>{{ item.category }}</td>
-        <td><strong>{{ item.count }}</strong></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+    {% if data.glpi_summary.recent_tickets %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 55px;">ID</th>
+          <th>Assunto / Solicitação</th>
+          <th style="width: 145px;">Categoria</th>
+          <th style="width: 75px;">Abertura</th>
+          <th style="width: 105px;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in data.glpi_summary.recent_tickets %}
+        <tr>
+          <td><strong>#{{ t.id }}</strong></td>
+          <td>{{ t.title }}</td>
+          <td>{{ t.category }}</td>
+          <td>{{ t.date }}</td>
+          <td><span class="badge-ok">{{ t.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
   {% endif %}
+
+  {% if data.show_plantao_obito and data.plantao_obito %}
+  <div class="section-break-ok">
+    <div class="section-title">Relatório de Plantão do Óbito (Atendimentos Críticos)</div>
+    {% for item in data.plantao_obito %}
+    <div class="obito-card">
+      <div class="obito-header">
+        <span>#{{ item.ticket_id }} — {{ item.title }}</span>
+        <span class="badge-ok">{{ item.status }}</span>
+      </div>
+      <div class="obito-meta">
+        <strong>Abertura:</strong> {{ item.opened_at }} &nbsp;|&nbsp;
+        <strong>Encerramento:</strong> {{ item.closed_at }} &nbsp;|&nbsp;
+        <strong>Técnico Responsável:</strong> {{ item.technician }}
+      </div>
+      <div class="obito-validation">
+        <strong>Validação de Encerramento:</strong> {{ item.validation_text }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
   {% endif %}
 
   {% if data.show_provimento_cnj and data.provimento_cnj and data.provimento_cnj.has_project %}
-  <h2>Adequação Tecnológica: Provimento CNJ</h2>
-  <div class="client-meta">
-    <strong>Projeto:</strong> {{ data.provimento_cnj.project_title }} (Ticket #{{ data.provimento_cnj.ticket_id }}) •
-    <strong>Progresso Consolidado:</strong> {{ data.provimento_cnj.progress_percent }}%
-    ({{ data.provimento_cnj.completed_tasks }}/{{ data.provimento_cnj.total_tasks }} etapas concluídas)
-  </div>
-  <progress class="cnj-progress" value="{{ data.provimento_cnj.progress_percent }}" max="100"></progress>
-  {% if data.provimento_cnj.tasks %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Etapa / Entregável Normativo</th>
-        <th class="col-narrow">Situação</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for task in data.provimento_cnj.tasks %}
-      <tr>
-        <td>{{ task.title }}</td>
-        <td>
-          {% if task.completed %}
+  <div class="section-break-ok">
+    <div class="section-title">Adequação Tecnológica — Provimento CNJ</div>
+    <div class="cnj-hero-box">
+      <div>
+        <div style="font-size: 7.5pt; font-weight: 700; color: #9a3412; text-transform: uppercase;">
+          Projeto de Conformidade Normativa • Ticket #{{ data.provimento_cnj.ticket_id }}
+        </div>
+        <div style="font-size: 10.5pt; font-weight: 800; color: #0f172a; margin-top: 2px;">
+          {{ data.provimento_cnj.project_title }}
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 6.5pt; font-weight: 800; color: #9a3412; text-transform: uppercase; margin-bottom: 2px;">
+          Conclusão Global
+        </div>
+        <div class="cnj-percent-badge">{{ data.provimento_cnj.progress_percent }}%</div>
+      </div>
+    </div>
+
+    {% if data.provimento_cnj.tasks %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Etapa / Entregável Normativo</th>
+          <th style="width: 110px;">Situação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tk in data.provimento_cnj.tasks %}
+        <tr>
+          <td>{{ tk.title }}</td>
+          <td>
+            {% if tk.completed %}
             <span class="badge-ok">Concluída</span>
-          {% else %}
+            {% else %}
             <span class="badge-warn">Em Execução</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
   {% endif %}
 
   {% if data.show_bitdefender and data.bitdefender_summary %}
-  <h2>Segurança de Endpoints & Licenciamento (Bitdefender)</h2>
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-label">Licenças (Em Uso / Total)</div>
-      <div class="kpi-value">{{ data.bitdefender_summary.used_seats or data.bitdefender_summary.managed_endpoints }} / {{ data.bitdefender_summary.total_seats or data.bitdefender_summary.total_endpoints }}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Validade da Licença</div>
-      <div class="kpi-value kpi-accent" style="font-size: 11pt;">{{ data.bitdefender_summary.expiration_date or 'Não informada' }}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Índice de Integridade</div>
-      <div class="kpi-value">{{ data.bitdefender_summary.security_health_percent }}%</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Quarentena</div>
-      <div class="kpi-value">{{ data.bitdefender_summary.quarantine_items }}</div>
-    </div>
-  </div>
-
-  {% if data.bitdefender_summary.endpoints %}
-  <table class="data-table inv-table">
-    <thead>
-      <tr>
-        <th>Estação / Endpoint Protegido</th>
-        <th>Endereço IP</th>
-        <th class="col-narrow">Status EDR</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for ep in data.bitdefender_summary.endpoints %}
-      <tr>
-        <td><strong>{{ ep.name }}</strong></td>
-        <td>{{ ep.ip }}</td>
-        <td><span class="badge-ok">{{ ep.status }}</span></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-  {% endif %}
-
- {% if data.show_backups and data.backup_summary %}
-  <h2>Continuidade Operacional & Auditoria de Backups (Backblaze B2 / Zabbix)</h2>
-  {% if data.backup_summary.active_channels %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Rotina / Camada de Cópia</th>
-        <th>SLA na Competência</th>
-        <th>Dias Funcionais</th>
-        <th>Última Verificação</th>
-        <th class="col-narrow">Status Atual</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for ch in data.backup_summary.active_channels %}
-      <tr>
-        <td><strong>{{ ch.channel }}</strong></td>
-        <td><strong>{{ ch.sla_30d_percent }}%</strong></td>
-        <td>{% if ch.total_days %}{{ ch.ok_days }} / {{ ch.total_days }} dias{% else %}-{% endif %}</td>
-        <td>{{ ch.last_check }}</td>
-        <td>
-          {% if ch.is_healthy %}
-            <span class="badge-ok">Funcional</span>
-          {% else %}
-            <span class="badge-warn">Com Falha</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-
-  {% if data.backup_summary.disk_usage %}
-  <table class="data-table inv-table">
-    <thead>
-      <tr>
-        <th>Ponto de Montagem / Repositório Monitorado</th>
-        <th class="col-narrow">Ocupação (%)</th>
-        <th class="col-narrow">Situação</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for d in data.backup_summary.disk_usage %}
-      <tr>
-        <td><strong>{{ d.volume }}</strong></td>
-        <td><strong>{{ d.used_percent }}%</strong></td>
-        <td>
-          {% if d.used_percent >= 90 %}
-            <span class="badge-warn">{{ d.status }}</span>
-          {% else %}
-            <span class="badge-ok">{{ d.status }}</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-
-  {% if data.backup_summary.analyst_note %}
-  <div class="note-box">
-    <strong>Parecer Técnico de Continuidade:</strong> {{ data.backup_summary.analyst_note }}
-  </div>
-  {% endif %}
-  {% endif %}
-
-  {% if data.show_glpi_inventory and data.glpi_summary and data.glpi_summary.inventory %}
-  <h2>Inventário Tecnológico & Hardware Auditado</h2>
-  <p class="inventory-note">{{ data.glpi_summary.inventory.note }}</p>
-  {% if data.glpi_summary.inventory.machines %}
-  <table class="data-table inv-table">
-    <thead>
-      <tr>
-        <th>Estação / Host</th>
-        <th>Processador (CPU)</th>
-        <th>RAM</th>
-        <th>Placa de Vídeo (GPU)</th>
-        <th>Sistema Operacional</th>
-        <th>Antivírus</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for m in data.glpi_summary.inventory.machines %}
-      <tr>
-        <td><strong>{{ m.name }}</strong></td>
-        <td>{{ m.cpu or 'Não informado' }}</td>
-        <td><strong>{{ m.ram or '-' }}</strong></td>
-        <td>{{ m.gpu or 'Integrada' }}</td>
-        <td>{{ m.os }}</td>
-        <td>{{ m.antivirus or 'Não detectado' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-  {% endif %}
-
-  <div class="integrity-footer">
-    <div class="integrity-left">
-      <strong>SOFTLAN TI — Soluções em Tecnologia</strong><br />
-      Responsável Técnico: <strong>{{ generated_by }}</strong> • Hash SHA-256: <code>{{ doc_hash }}</code>
-    </div>
-    <div class="integrity-right">
-      <svg width="26" height="26" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M52 8H92V24C92 40 79 52 63 52H36V38H63C71 38 77 32 77 24V22H52C34 22 22 34 22 50V56H8V48C8 24 27 8 52 8Z" fill="#0F172A"/>
-        <path d="M48 92H8V76C8 60 21 48 37 48H64V62H37C29 62 23 68 23 76V78H48C66 78 78 66 78 50V44H92V52C92 76 73 92 48 92Z" fill="#FF5A1F"/>
-      </svg>
+  <div class="section">
+    <div class="section-title">Segurança de Endpoints &amp; Licenciamento (Bitdefender GravityZone)</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Licenças (Em Uso / Total)</div>
+        <div class="kpi-value">
+          {{ data.bitdefender_summary.used_seats or data.bitdefender_summary.managed_endpoints }} /
+          {{ data.bitdefender_summary.total_seats or data.bitdefender_summary.total_endpoints }}
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Validade da Licença</div>
+        <div class="kpi-value accent">{{ data.bitdefender_summary.expiration_date }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Índice de Integridade</div>
+        <div class="kpi-value emerald">{{ data.bitdefender_summary.security_health_percent }}%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Tentativas / Bloqueios</div>
+        <div class="kpi-value">{{ data.bitdefender_summary.total_blocked_events or data.bitdefender_summary.quarantine_items or 0 }}</div>
+      </div>
     </div>
   </div>
+  {% endif %}
 
+  {% if (data.show_glpi_inventory or data.show_bitdefender) and data.unified_assets %}
+  <div class="section-break-ok">
+    <div class="section-title">Inventário Unificado de Ativos &amp; Telemetria de Proteção ({{ data.unified_assets | length }} Ativos)</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 75px;">ID EDR</th>
+          <th>Hostname / Estação</th>
+          <th style="width: 82px;">IP</th>
+          <th>Hardware (CPU / RAM / GPU)</th>
+          <th>Sistema Operacional</th>
+          <th style="width: 58px;">Bloqueios</th>
+          <th style="width: 105px;">Mitigação / Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for asset in data.unified_assets %}
+        <tr>
+          <td style="font-family: monospace; font-size: 7pt;">{{ asset.endpoint_id[:10] }}</td>
+          <td><strong>{{ asset.hostname }}</strong></td>
+          <td style="font-family: monospace;">{{ asset.ip }}</td>
+          <td>{{ asset.cpu }} • <strong>{{ asset.ram }}</strong> • {{ asset.gpu }}</td>
+          <td>{{ asset.os }}</td>
+          <td style="text-align: center;"><strong>{{ asset.blocked_count }}</strong></td>
+          <td>
+            {% if asset.is_protected %}
+            <span class="badge-ok">{{ asset.remediation_status }}</span>
+            {% else %}
+            <span class="badge-err">{{ asset.remediation_status }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if data.show_backups and data.backup_summary and data.backup_summary.active_channels %}
+  <div class="section-break-ok">
+    <div class="section-title">Auditoria de Backups &amp; Continuidade ({{ data.backup_summary.host_slug }})</div>
+    <div class="summary-card" style="margin-bottom: 10px;">
+      {{ data.backup_summary.analyst_note }}
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Camada / Rotina de Backup</th>
+          <th style="width: 85px;">Status Atual</th>
+          <th style="width: 80px;">SLA Mensal</th>
+          <th style="width: 105px;">Última Verificação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ch in data.backup_summary.active_channels %}
+        <tr>
+          <td><strong>{{ ch.channel }}</strong></td>
+          <td>
+            {% if ch.is_healthy %}
+            <span class="badge-ok">{{ ch.status }}</span>
+            {% else %}
+            <span class="badge-err">{{ ch.status }}</span>
+            {% endif %}
+          </td>
+          <td><strong>{{ ch.sla_30d_percent }}%</strong></td>
+          <td>{{ ch.last_check }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </body>
 </html>

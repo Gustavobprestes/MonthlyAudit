@@ -13,10 +13,9 @@ def _format_bd_date(raw_date: Any) -> str:
     if raw_date is None or raw_date == "" or raw_date == 0:
         return "Não informada"
 
-    # Caso venha como timestamp numérico (segundos ou milissegundos)
     if isinstance(raw_date, (int, float)):
         ts = float(raw_date)
-        if ts > 1e11:  # milissegundos
+        if ts > 1e11:
             ts = ts / 1000.0
         if ts > 0:
             return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%d/%m/%Y")
@@ -26,7 +25,6 @@ def _format_bd_date(raw_date: Any) -> str:
     if not text or text.lower() in ("null", "none", "n/a", "unlimited"):
         return "Perpétua / Sem expiração" if text.lower() == "unlimited" else "Não informada"
 
-    # Timestamp numérico em string
     if text.isdigit():
         ts = float(text)
         if ts > 1e11:
@@ -206,7 +204,6 @@ class BitdefenderService:
         expiration_date = "Não informada"
         product_name = "GravityZone Business Security"
 
-        # 1. Consulta detalhes diretos da empresa (companies/getCompanyDetails)
         try:
             details = await self._rpc("companies", "getCompanyDetails", {"companyId": company_id})
             if details:
@@ -222,7 +219,6 @@ class BitdefenderService:
         except Exception as exc:
             logger.debug("getCompanyDetails indisponível para %s: %s", company_id, exc)
 
-        # 2. Consulta licenciamento específico da empresa (licensing/getLicenseInfo)
         if total_seats == 0 or expiration_date == "Não informada":
             try:
                 lic_info = await self._rpc("licensing", "getLicenseInfo", {"companyId": company_id})
@@ -239,7 +235,6 @@ class BitdefenderService:
             except Exception as exc:
                 logger.debug("licensing/getLicenseInfo indisponível para %s: %s", company_id, exc)
 
-        # 3. Fallback: varre getCompaniesList procurando o objeto da empresa pelo ID
         if total_seats == 0 or expiration_date == "Não informada":
             try:
                 page = 1
@@ -279,7 +274,7 @@ class BitdefenderService:
         }
 
     async def collect_security_audit(self, company_id: str | None) -> dict[str, Any]:
-        """Coleta endpoints gerenciados, nomes, licenças, validade e quarentena."""
+        """Coleta endpoints gerenciados, IDs, bloqueios/quarentena por máquina e status de mitigação."""
         if not self.api_key or not company_id:
             return {}
 
@@ -324,50 +319,106 @@ class BitdefenderService:
                 )
                 all_endpoints = inv_res.get("items", []) if isinstance(inv_res, dict) else []
 
-            total_endpoints = len(all_endpoints)
-            managed_count = 0
-            clean_count = 0
-            infected_or_issue = 0
-            endpoint_rows: list[dict[str, str]] = []
-
-            for ep in all_endpoints:
-                is_managed = bool(ep.get("isManaged", True))
-                if is_managed:
-                    managed_count += 1
-                state = str(ep.get("state", "")).lower()
-                malware = ep.get("malwareStatus", {})
-                has_malware = bool(malware.get("infected")) if isinstance(malware, dict) else False
-                is_clean = not has_malware and state in ("", "ok", "clean", "protected", "0", "online")
-                if is_clean:
-                    clean_count += 1
-                else:
-                    infected_or_issue += 1
-
-                ep_name = str(ep.get("name") or ep.get("label") or "Endpoint")
-                ep_ip = str(ep.get("ip") or ep.get("ipAddress") or "-")
-                endpoint_rows.append(
-                    {
-                        "name": ep_name,
-                        "ip": ep_ip,
-                        "status": "Protegido" if is_clean else "Verificar",
-                    }
-                )
-
-            endpoint_rows.sort(key=lambda x: x["name"].lower())
-
+            # Coleta itens em quarentena e bloqueios por endpoint
+            quarantine_items: list[dict[str, Any]] = []
             quarantine_count = 0
             for q_endpoint in ("quarantine/computers", "quarantine"):
                 try:
                     q_res = await self._rpc(
                         q_endpoint,
                         "getQuarantineItemsList",
-                        {"companyId": company_id, "page": 1, "perPage": 50},
+                        {"companyId": company_id, "page": 1, "perPage": 100},
                     )
                     if isinstance(q_res, dict):
-                        quarantine_count = int(q_res.get("total", len(q_res.get("items", []))))
+                        quarantine_items = q_res.get("items", []) or []
+                        quarantine_count = int(q_res.get("total", len(quarantine_items)))
                         break
                 except Exception:
                     continue
+
+            # Indexa bloqueios/quarentena por endpointId e endpointName
+            blocks_by_id: dict[str, list[str]] = {}
+            blocks_by_name: dict[str, list[str]] = {}
+            for qi in quarantine_items:
+                ep_id = str(qi.get("endpointId") or qi.get("computerId") or "").strip()
+                ep_nm = str(qi.get("endpointName") or qi.get("computerName") or "").strip().lower()
+                threat = str(qi.get("threatName") or qi.get("fileName") or "Ameaça Bloqueada").strip()
+                if ep_id:
+                    blocks_by_id.setdefault(ep_id, []).append(threat)
+                if ep_nm:
+                    blocks_by_name.setdefault(ep_nm, []).append(threat)
+
+            total_endpoints = len(all_endpoints)
+            managed_count = 0
+            clean_count = 0
+            infected_or_issue = 0
+            total_blocked_events = quarantine_count
+            endpoint_rows: list[dict[str, Any]] = []
+
+            for ep in all_endpoints:
+                ep_id = str(ep.get("id") or "-")
+                ep_name = str(ep.get("name") or ep.get("label") or "Endpoint").strip()
+                ep_ip = str(ep.get("ip") or ep.get("ipAddress") or "-")
+
+                is_managed = bool(ep.get("isManaged", True))
+                if is_managed:
+                    managed_count += 1
+
+                state = str(ep.get("state", "")).lower()
+                malware = ep.get("malwareStatus", {})
+                has_active_malware = (
+                    bool(malware.get("infected")) if isinstance(malware, dict) else False
+                )
+
+                # Quantidade de bloqueios/ameaças interceptadas neste endpoint
+                ep_threats = blocks_by_id.get(ep_id, []) or blocks_by_name.get(ep_name.lower(), [])
+                blocked_count = len(ep_threats)
+                if isinstance(malware, dict):
+                    blocked_count = max(
+                        blocked_count,
+                        int(malware.get("blockedItems") or malware.get("quarantinedItems") or 0),
+                    )
+
+                is_clean = not has_active_malware and state in (
+                    "",
+                    "ok",
+                    "clean",
+                    "protected",
+                    "0",
+                    "online",
+                )
+                if is_clean:
+                    clean_count += 1
+                else:
+                    infected_or_issue += 1
+
+                if blocked_count > 0 and is_clean:
+                    remediation_status = "Mitigado / Corrigido"
+                elif blocked_count > 0 and not is_clean:
+                    remediation_status = "Ação Pendente"
+                elif is_clean:
+                    remediation_status = "Sem Ameaças (Limpo)"
+                else:
+                    remediation_status = "Verificar Agente"
+
+                endpoint_rows.append(
+                    {
+                        "endpoint_id": ep_id,
+                        "name": ep_name,
+                        "ip": ep_ip,
+                        "blocked_count": blocked_count,
+                        "remediation_status": remediation_status,
+                        "is_protected": is_clean,
+                        "status": "Protegido" if is_clean else "Verificar",
+                        "threats_detail": ", ".join(ep_threats[:3]) if ep_threats else "",
+                    }
+                )
+
+            endpoint_rows.sort(key=lambda x: x["name"].lower())
+            total_blocked_events = max(
+                quarantine_count,
+                sum(int(r["blocked_count"]) for r in endpoint_rows),
+            )
 
             health_score = (
                 round((clean_count / total_endpoints) * 100, 1) if total_endpoints > 0 else 100.0
@@ -381,6 +432,7 @@ class BitdefenderService:
                 "clean_endpoints": clean_count,
                 "endpoints_with_issues": infected_or_issue,
                 "quarantine_items": quarantine_count,
+                "total_blocked_events": total_blocked_events,
                 "security_health_percent": health_score,
                 "total_seats": total_seats,
                 "used_seats": used_seats,
@@ -396,6 +448,7 @@ class BitdefenderService:
                 "clean_endpoints": 0,
                 "endpoints_with_issues": 0,
                 "quarantine_items": 0,
+                "total_blocked_events": 0,
                 "security_health_percent": 0.0,
                 "total_seats": 0,
                 "used_seats": 0,

@@ -1,4 +1,5 @@
 import asyncio
+import re
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,84 @@ from app.services.pdf_service import generate_softlan_audit_pdf
 from app.services.zabbix_service import ZabbixService
 
 router = APIRouter(prefix="/api/v1")
+
+
+def _normalize_hostname(raw: str) -> str:
+    """Normaliza hostname para cruzamento entre inventário GLPI e Bitdefender GravityZone."""
+    base = str(raw or "").strip().lower().split(".")[0]
+    return re.sub(r"[^a-z0-9]", "", base)
+
+
+def _merge_inventory_and_bitdefender(
+    glpi_machines: list[dict], bd_endpoints: list[dict]
+) -> list[dict]:
+    """Unifica inventário de hardware GLPI com telemetria Bitdefender por hostname."""
+    bd_by_norm: dict[str, dict] = {}
+    for ep in bd_endpoints:
+        norm = _normalize_hostname(ep.get("name", ""))
+        if norm:
+            bd_by_norm[norm] = ep
+
+    matched_norms: set[str] = set()
+    unified: list[dict] = []
+
+    for m in glpi_machines:
+        hostname = str(m.get("name") or "Estação").strip()
+        norm = _normalize_hostname(hostname)
+        bd = bd_by_norm.get(norm)
+        if bd:
+            matched_norms.add(norm)
+
+        unified.append(
+            {
+                "endpoint_id": bd.get("endpoint_id", "-") if bd else "-",
+                "hostname": hostname,
+                "ip": bd.get("ip", "-") if bd else "-",
+                "os": m.get("os") or "Não informado",
+                "cpu": m.get("cpu") or "Não informado",
+                "ram": m.get("ram") or "-",
+                "gpu": m.get("gpu") or "Integrada",
+                "antivirus": m.get("antivirus") or ("Bitdefender GravityZone" if bd else "Não detectado"),
+                "blocked_count": int(bd.get("blocked_count", 0)) if bd else 0,
+                "remediation_status": (
+                    bd.get("remediation_status", "Sem Ameaças (Limpo)")
+                    if bd
+                    else "Inventário GLPI"
+                ),
+                "is_protected": bool(bd.get("is_protected", True)) if bd else True,
+                "protection_label": (
+                    bd.get("status", "Protegido")
+                    if bd
+                    else ("Protegido (GLPI)" if m.get("antivirus") else "Sem Agente EDR")
+                ),
+            }
+        )
+
+    # Inclui endpoints do Bitdefender que ainda não constam no inventário GLPI
+    for ep in bd_endpoints:
+        hostname = str(ep.get("name") or "Endpoint").strip()
+        norm = _normalize_hostname(hostname)
+        if norm in matched_norms:
+            continue
+        unified.append(
+            {
+                "endpoint_id": ep.get("endpoint_id", "-"),
+                "hostname": hostname,
+                "ip": ep.get("ip", "-"),
+                "os": "Gerenciado via GravityZone",
+                "cpu": "-",
+                "ram": "-",
+                "gpu": "-",
+                "antivirus": "Bitdefender GravityZone",
+                "blocked_count": int(ep.get("blocked_count", 0)),
+                "remediation_status": ep.get("remediation_status", "Sem Ameaças (Limpo)"),
+                "is_protected": bool(ep.get("is_protected", True)),
+                "protection_label": ep.get("status", "Protegido"),
+            }
+        )
+
+    unified.sort(key=lambda item: item["hostname"].lower())
+    return unified
 
 
 async def _sync_user_account(db: AsyncSession, user_info: dict) -> UserAccount:
@@ -281,7 +360,7 @@ async def delete_client_mapping(
     return {"deleted": True, "id": client_id}
 
 
-# ==================== TEMPLATES E AUDITORIA (TODOS OS USUÁRIOS AUTENTICADOS) ====================
+# ==================== TEMPLATES E AUDITORIA ====================
 
 
 @router.get("/templates")
@@ -329,6 +408,7 @@ async def collect_audit_preview(
     )
 
     provimento = glpi_data.pop("provimento_cnj", None)
+    plantao_obito = glpi_data.pop("plantao_obito", [])
 
     normalized_backup = None
     if zbx_data and isinstance(zbx_data, dict):
@@ -352,6 +432,7 @@ async def collect_audit_preview(
             "clean_endpoints": bd_data.get("clean_endpoints", 0),
             "endpoints_with_issues": bd_data.get("endpoints_with_issues", 0),
             "quarantine_items": bd_data.get("quarantine_items", 0),
+            "total_blocked_events": bd_data.get("total_blocked_events", 0),
             "security_health_percent": bd_data.get("security_health_percent", 100.0),
             "total_seats": bd_data.get("total_seats", bd_data.get("total_endpoints", 0)),
             "used_seats": bd_data.get("used_seats", bd_data.get("managed_endpoints", 0)),
@@ -361,6 +442,10 @@ async def collect_audit_preview(
             "error": bd_data.get("error"),
         }
 
+    glpi_machines = (glpi_data.get("inventory") or {}).get("machines") or []
+    bd_endpoints = (normalized_bd or {}).get("endpoints") or []
+    unified_assets = _merge_inventory_and_bitdefender(glpi_machines, bd_endpoints)
+
     return {
         "client_mapping_id": client_map.id,
         "client_name": client_map.display_name,
@@ -369,6 +454,7 @@ async def collect_audit_preview(
         "show_glpi_tickets": True,
         "show_glpi_inventory": True,
         "show_provimento_cnj": bool(provimento and provimento.get("has_project")),
+        "show_plantao_obito": len(plantao_obito) > 0,
         "show_bitdefender": bool(normalized_bd),
         "show_backups": bool(normalized_backup),
         "executive_summary": (
@@ -377,8 +463,10 @@ async def collect_audit_preview(
         ),
         "glpi_summary": glpi_data,
         "provimento_cnj": provimento,
+        "plantao_obito": plantao_obito,
         "bitdefender_summary": normalized_bd,
         "backup_summary": normalized_backup,
+        "unified_assets": unified_assets,
     }
 
 
@@ -420,6 +508,25 @@ async def list_audit_history(
         select(AuditReportHistory).order_by(desc(AuditReportHistory.generated_at)).limit(100)
     )
     return res.scalars().all()
+
+
+@router.delete("/audit/history/{history_id}")
+async def delete_audit_history(
+    history_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """Permite exclusivamente a usuários Administradores excluir registros do histórico de PDFs."""
+    res = await db.execute(
+        select(AuditReportHistory).where(AuditReportHistory.id == history_id)
+    )
+    record = res.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Registro histórico não encontrado.")
+
+    await db.delete(record)
+    await db.commit()
+    return {"deleted": True, "id": history_id}
 
 
 @router.get("/audit/history/{history_id}/reprint")

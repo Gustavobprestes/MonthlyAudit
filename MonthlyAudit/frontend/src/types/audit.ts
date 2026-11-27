@@ -10,7 +10,7 @@ export type AppTheme =
 export interface UserProfile {
   sub: string;
   name: string;
-  picture?: string;
+  picture: string;
   role: "admin" | "user";
 }
 
@@ -18,10 +18,10 @@ export interface ManagedUser {
   id: number;
   email: string;
   name: string;
-  picture?: string;
+  picture: string;
   role: "admin" | "user";
   is_env_locked: boolean;
-  last_login: string;
+  last_login: string | null;
 }
 
 export interface ClientMapping {
@@ -36,29 +36,37 @@ export interface ClientMapping {
 export interface ReportTemplate {
   id: number;
   name: string;
-  description: string | null;
   show_glpi_tickets: boolean;
   show_glpi_inventory: boolean;
   show_provimento_cnj: boolean;
   show_bitdefender: boolean;
   show_backups: boolean;
-  default_executive_summary: string | null;
+  default_executive_summary: string;
 }
 
-export interface MachineInventoryItem {
-  name: string;
-  cpu?: string;
-  ram?: string;
-  gpu?: string;
-  os: string;
-  antivirus?: string;
-  last_sync: string;
-}
-
-export interface BitdefenderEndpointItem {
-  name: string;
-  ip: string;
+export interface PlantaoObitoItem {
+  ticket_id: number;
+  title: string;
   status: string;
+  opened_at: string;
+  closed_at: string;
+  technician: string;
+  validation_text: string;
+}
+
+export interface UnifiedAssetRow {
+  endpoint_id: string;
+  hostname: string;
+  ip: string;
+  os: string;
+  cpu: string;
+  ram: string;
+  gpu: string;
+  antivirus: string;
+  blocked_count: number;
+  remediation_status: string;
+  is_protected: boolean;
+  protection_label: string;
 }
 
 export interface AuditPayload {
@@ -69,51 +77,74 @@ export interface AuditPayload {
   show_glpi_tickets: boolean;
   show_glpi_inventory: boolean;
   show_provimento_cnj: boolean;
+  show_plantao_obito: boolean;
   show_bitdefender: boolean;
   show_backups: boolean;
   executive_summary: string;
   glpi_summary: {
     total_opened: number;
     total_resolved: number;
-    total_in_progress: number;
-    top_incidences: { category: string; count: number }[];
+    by_category: { category: string; count: number }[];
+    recent_tickets: {
+      id: number;
+      title: string;
+      status: string;
+      category: string;
+      date: string;
+    }[];
     inventory: {
-      has_agent_data: boolean;
       total_machines: number;
-      machines: MachineInventoryItem[];
-      note: string;
+      by_os: { os: string; count: number }[];
+      machines: {
+        name: string;
+        serial: string;
+        os: string;
+        cpu: string;
+        ram: string;
+        gpu: string;
+        antivirus: string;
+      }[];
     };
   };
   provimento_cnj: {
     has_project: boolean;
-    ticket_id: number;
+    ticket_id: number | null;
     project_title: string;
     progress_percent: number;
-    completed_tasks: number;
-    total_tasks: number;
     tasks: { id: number; title: string; completed: boolean; date: string }[];
   } | null;
+  plantao_obito: PlantaoObitoItem[];
   bitdefender_summary: {
     total_endpoints: number;
     managed_endpoints: number;
     clean_endpoints: number;
     endpoints_with_issues: number;
     quarantine_items: number;
+    total_blocked_events?: number;
     security_health_percent: number;
     total_seats?: number;
     used_seats?: number;
     expiration_date?: string;
     product_name?: string;
-    endpoints?: BitdefenderEndpointItem[];
+    endpoints?: {
+      endpoint_id: string;
+      name: string;
+      ip: string;
+      blocked_count: number;
+      remediation_status: string;
+      is_protected: boolean;
+      status: string;
+    }[];
     error?: string;
   } | null;
   backup_summary: {
     host_slug: string;
-    overall_sla_percent: number;
+    overall_sla_percent?: number;
     active_channels: {
+      key?: string;
       channel: string;
       status: string;
-      is_healthy: boolean;
+      is_healthy?: boolean;
       sla_30d_percent: number;
       ok_days?: number;
       total_days?: number;
@@ -124,10 +155,12 @@ export interface AuditPayload {
     analyst_note: string;
     error?: string;
   } | null;
+  unified_assets: UnifiedAssetRow[];
 }
 
 export interface HistoryRecord {
   id: number;
+  client_mapping_id: number;
   client_name: string;
   reference_month: string;
   template_name: string;
