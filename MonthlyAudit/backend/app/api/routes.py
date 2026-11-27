@@ -33,36 +33,78 @@ def _normalize_hostname(raw: str) -> str:
     base = str(raw or "").strip().lower().split(".")[0]
     return re.sub(r"[^a-z0-9]", "", base)
 
-
 def _merge_inventory_and_bitdefender(
     glpi_machines: list[dict], bd_endpoints: list[dict]
 ) -> list[dict]:
-    """Unifica inventário de hardware GLPI com telemetria Bitdefender por hostname."""
+    """Unifica e deduplica inventário de hardware GLPI com telemetria Bitdefender."""
     bd_by_norm: dict[str, dict] = {}
+    deduped_bd: list[dict] = []
+    seen_bd_keys: set[str] = set()
+
     for ep in bd_endpoints:
-        norm = _normalize_hostname(ep.get("name", ""))
-        if norm:
+        ep_id = str(ep.get("endpoint_id") or "").strip()
+        ep_name = str(ep.get("name") or "").strip()
+        norm = _normalize_hostname(ep_name)
+        dedup_key = ep_id if (ep_id and ep_id != "-") else norm
+        if dedup_key and dedup_key in seen_bd_keys:
+            continue
+        if dedup_key:
+            seen_bd_keys.add(dedup_key)
+        deduped_bd.append(ep)
+        if norm and norm not in bd_by_norm:
             bd_by_norm[norm] = ep
 
+    matched_bd_ids: set[str] = set()
     matched_norms: set[str] = set()
+    seen_glpi_hosts: set[str] = set()
     unified: list[dict] = []
 
     for m in glpi_machines:
         hostname = str(m.get("name") or "Estação").strip()
-        norm = _normalize_hostname(hostname)
-        bd = bd_by_norm.get(norm)
-        if bd:
-            matched_norms.add(norm)
+        otherserial = str(m.get("otherserial") or "").strip()
+        serial = str(m.get("serial") or "").strip()
+
+        norm_primary = _normalize_hostname(hostname)
+        if norm_primary and norm_primary in seen_glpi_hosts:
+            continue
+        if norm_primary:
+            seen_glpi_hosts.add(norm_primary)
+
+        candidates = [
+            norm_primary,
+            _normalize_hostname(otherserial),
+            _normalize_hostname(serial),
+        ]
+        bd = None
+        for cand in candidates:
+            if cand and cand in bd_by_norm:
+                bd = bd_by_norm[cand]
+                matched_norms.add(cand)
+                if bd.get("endpoint_id"):
+                    matched_bd_ids.add(str(bd["endpoint_id"]))
+                break
+
+        display_host = (
+            f"{hostname} ({otherserial})"
+            if otherserial and otherserial != "-" and otherserial.lower() != hostname.lower()
+            else hostname
+        )
+
+        cpu_val = str(m.get("cpu") or "").strip()
+        ram_val = str(m.get("ram") or "").strip()
+        gpu_val = str(m.get("gpu") or "").strip()
+        os_val = str(m.get("os") or "").strip()
 
         unified.append(
             {
                 "endpoint_id": bd.get("endpoint_id", "-") if bd else "-",
-                "hostname": hostname,
+                "hostname": display_host,
                 "ip": bd.get("ip", "-") if bd else "-",
-                "os": m.get("os") or "Não informado",
-                "cpu": m.get("cpu") or "Não informado",
-                "ram": m.get("ram") or "-",
-                "gpu": m.get("gpu") or "Integrada",
+                "os": os_val if os_val and os_val != "Não informado" else "Não informado no GLPI",
+                "cpu": cpu_val if cpu_val and cpu_val != "Não informado" else "-",
+                "ram": ram_val if ram_val else "-",
+                "gpu": gpu_val if gpu_val and gpu_val != "Integrada / Padrão" else "Integrada",
+                "has_glpi_hw": True,
                 "antivirus": m.get("antivirus") or ("Bitdefender GravityZone" if bd else "Não detectado"),
                 "blocked_count": int(bd.get("blocked_count", 0)) if bd else 0,
                 "remediation_status": (
@@ -79,21 +121,25 @@ def _merge_inventory_and_bitdefender(
             }
         )
 
-    # Inclui endpoints do Bitdefender que ainda não constam no inventário GLPI
-    for ep in bd_endpoints:
+    for ep in deduped_bd:
+        ep_id = str(ep.get("endpoint_id") or "-")
         hostname = str(ep.get("name") or "Endpoint").strip()
         norm = _normalize_hostname(hostname)
-        if norm in matched_norms:
+        if (ep_id != "-" and ep_id in matched_bd_ids) or (norm and norm in matched_norms):
             continue
+        if norm:
+            matched_norms.add(norm)
+
         unified.append(
             {
-                "endpoint_id": ep.get("endpoint_id", "-"),
+                "endpoint_id": ep_id,
                 "hostname": hostname,
                 "ip": ep.get("ip", "-"),
                 "os": "Gerenciado via GravityZone",
                 "cpu": "-",
                 "ram": "-",
                 "gpu": "-",
+                "has_glpi_hw": False,
                 "antivirus": "Bitdefender GravityZone",
                 "blocked_count": int(ep.get("blocked_count", 0)),
                 "remediation_status": ep.get("remediation_status", "Sem Ameaças (Limpo)"),
@@ -104,7 +150,6 @@ def _merge_inventory_and_bitdefender(
 
     unified.sort(key=lambda item: item["hostname"].lower())
     return unified
-
 
 async def _sync_user_account(db: AsyncSession, user_info: dict) -> UserAccount:
     """Cria ou atualiza o registro do usuário no PostgreSQL e aplica proteção Root Admin."""

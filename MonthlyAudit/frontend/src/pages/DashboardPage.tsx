@@ -73,7 +73,6 @@ const THEMES: { value: AppTheme; label: string; sublabel: string }[] = [
   { value: "cyberpunk", label: "Cyberpunk 2077", sublabel: "Neon Amarelo & Ciano" },
 ];
 
-/** Normaliza texto para busca inteligente sem acentos e case-insensitive */
 function normalizeSearch(text: string): string {
   return String(text || "")
     .normalize("NFD")
@@ -121,7 +120,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  // Estados de Busca Inteligente e Filtros
   const [assetSearch, setAssetSearch] = useState("");
   const [assetStatusFilter, setAssetStatusFilter] = useState<"all" | "protected" | "blocked">("all");
   const [historySearch, setHistorySearch] = useState("");
@@ -310,7 +308,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     }
   };
 
-  // Listas filtradas com busca inteligente sem acentos
   const filteredUnifiedAssets = useMemo(() => {
     const base = auditData?.unified_assets ?? [];
     const term = normalizeSearch(assetSearch);
@@ -495,12 +492,12 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
         {sidebarOpen && (
           <motion.aside
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 288, opacity: 1 }}
+            animate={{ width: 272, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
             className="hidden lg:block shrink-0 relative z-20 overflow-hidden"
           >
-            <div className="w-72 p-4 h-screen sticky top-0">
+            <div className="w-[272px] p-4 h-screen sticky top-0">
               <div className="squircle-card h-full">
                 <SidebarBody />
               </div>
@@ -534,7 +531,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
 
       <div className="flex-1 min-w-0 flex flex-col justify-between relative z-10 min-h-screen">
         <div>
-          <header className="sticky top-0 z-30 px-4 sm:px-8 pt-4">
+          <header className="sticky top-0 z-30 px-4 sm:px-6 pt-4">
             <div className="squircle-card px-4 sm:px-5 h-16 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <button
@@ -644,7 +641,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
             </div>
           </header>
 
-          <main className="px-4 sm:px-8 py-6 max-w-7xl w-full mx-auto">
+          <main className="px-4 sm:px-6 py-6 max-w-[1520px] w-full mx-auto">
             <AnimatePresence mode="wait">
               {tab === "audit" && (
                 <motion.div
@@ -729,464 +726,494 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     <motion.div
                       initial={{ opacity: 0, y: 14 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="grid lg:grid-cols-12 gap-6"
+                      className="space-y-6"
                     >
-                      <aside className="lg:col-span-4 space-y-6">
-                        <div className="squircle-card p-6 space-y-4">
-                          <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                            <FileText className="w-4 h-4 theme-accent-text" />
-                            Padrões & Seções do PDF
-                          </h2>
-
-                          <AnimatedSelect
-                            value=""
-                            onChange={applyTemplate}
-                            searchable={false}
-                            placeholder="Aplicar padrão salvo..."
-                            options={templates.map((t) => ({
-                              value: String(t.id),
-                              label: t.name,
-                            }))}
-                          />
-
-                          <div className="space-y-2 pt-2">
-                            {[
-                              { key: "show_glpi_tickets", label: "Chamados & Incidências GLPI" },
-                              { key: "show_plantao_obito", label: "Relatório Plantão do Óbito" },
-                              { key: "show_provimento_cnj", label: "Cronograma Provimento CNJ" },
-                              { key: "show_bitdefender", label: "Segurança Bitdefender GravityZone" },
-                              { key: "show_backups", label: "Auditoria de Backups (Zabbix / B2)" },
-                              { key: "show_glpi_inventory", label: "Inventário Unificado & EDR" },
-                            ].map((toggle) => (
-                              <label
-                                key={toggle.key}
-                                className="flex items-center justify-between p-3 rounded-xl theme-pill cursor-pointer"
-                              >
-                                <span className="text-xs font-semibold">{toggle.label}</span>
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(auditData[toggle.key as keyof AuditPayload])}
-                                  onChange={(e) =>
-                                    setAuditData({ ...auditData, [toggle.key]: e.target.checked })
-                                  }
-                                  className="w-4 h-4 accent-[#ff5a1f]"
-                                />
-                              </label>
-                            ))}
-                          </div>
-
-                          {isAdmin && (
-                            <div className="pt-3 border-t border-current/15 flex gap-2">
-                              <input
-                                type="text"
-                                value={newTplName}
-                                onChange={(e) => setNewTplName(e.target.value)}
-                                placeholder="Salvar como novo padrão..."
-                                className="flex-1 theme-input rounded-xl px-3 py-2 text-xs"
-                              />
-                              <button
-                                type="button"
-                                onClick={handleSaveTemplate}
-                                className="p-2.5 rounded-xl theme-accent-bg cursor-pointer"
-                                title="Salvar padrão"
-                              >
-                                <BookmarkPlus className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          disabled={exporting}
-                          onClick={handleExportPdf}
-                          className="w-full py-4 px-6 rounded-2xl theme-accent-bg font-extrabold text-sm flex items-center justify-center gap-3 transition cursor-pointer"
-                        >
-                          <FileDown className="w-5 h-5" />
-                          {exporting ? "Gerando PDF Oficial..." : "Gerar e Baixar PDF Oficial"}
-                        </button>
-                      </aside>
-
-                      <section className="lg:col-span-8 space-y-6">
-                        <div className="squircle-card p-6">
-                          <label className="block text-xs font-mono uppercase tracking-wider theme-accent-text mb-2">
-                            Parecer Executivo da Engenharia (Editável)
-                          </label>
-                          <textarea
-                            rows={4}
-                            value={auditData.executive_summary || ""}
-                            onChange={(e) =>
-                              setAuditData({ ...auditData, executive_summary: e.target.value })
-                            }
-                            className="w-full theme-input rounded-xl p-4 text-sm leading-relaxed"
-                          />
-                        </div>
-
-                        <div className="grid sm:grid-cols-3 gap-4">
-                          <div className="squircle-card p-5">
-                            <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
-                              <span>CHAMADOS GLPI</span>
-                              <SuperellipseTile size="sm" tone="accent">
-                                <IconGlpiService className="w-5 h-5" />
-                              </SuperellipseTile>
-                            </div>
-                            <div className="text-3xl font-black">
-                              {auditData.glpi_summary?.total_resolved ?? 0}
-                              <span className="text-sm font-normal theme-text-muted">
-                                {" "}
-                                / {auditData.glpi_summary?.total_opened ?? 0} concluídos
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="squircle-card p-5">
-                            <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
-                              <span>BITDEFENDER LICENÇAS</span>
-                              <SuperellipseTile size="sm" tone="emerald">
-                                <IconBitdefenderShield className="w-5 h-5" />
-                              </SuperellipseTile>
-                            </div>
-                            <div className="text-3xl font-black text-emerald-500">
-                              {auditData.bitdefender_summary
-                                ? `${
-                                    auditData.bitdefender_summary.used_seats ??
-                                    auditData.bitdefender_summary.managed_endpoints
-                                  } / ${
-                                    auditData.bitdefender_summary.total_seats ??
-                                    auditData.bitdefender_summary.total_endpoints
-                                  }`
-                                : "N/A"}
-                            </div>
-                            <div className="text-[11px] theme-text-muted mt-1">
-                              {auditData.bitdefender_summary
-                                ? `Validade: ${
-                                    auditData.bitdefender_summary.expiration_date || "Não informada"
-                                  } • Bloqueios: ${
-                                    auditData.bitdefender_summary.total_blocked_events ?? 0
-                                  }`
-                                : "Empresa não vinculada"}
-                            </div>
-                          </div>
-
-                          <div className="squircle-card p-5">
-                            <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
-                              <span>SLA BACKUPS (30D)</span>
-                              <SuperellipseTile size="sm" tone="sky">
-                                <IconBackupVault className="w-5 h-5" />
-                              </SuperellipseTile>
-                            </div>
-                            <div className="text-3xl font-black">
-                              {auditData.backup_summary && backupChannels.length > 0
-                                ? `${auditData.backup_summary.overall_sla_percent ?? 100}%`
-                                : "N/A"}
-                            </div>
-                            <div className="text-[11px] theme-text-muted mt-1">
-                              {auditData.backup_summary
-                                ? `${backupChannels.length} camadas auditadas`
-                                : "Host Zabbix não vinculado"}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Relatório Plantão do Óbito */}
-                        {auditData.show_plantao_obito && plantaoObitoList.length > 0 && (
+                      {/* Bloco Superior: Controles do PDF (4 cols) + Parecer & KPIs & Backups (8 cols) */}
+                      <div className="grid lg:grid-cols-12 gap-6 items-start">
+                        <aside className="lg:col-span-4 space-y-6">
                           <div className="squircle-card p-6 space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <HeartPulse className="w-4 h-4 theme-accent-text" />
-                                <h3 className="text-sm font-bold uppercase tracking-wider">
-                                  Relatório Plantão do Óbito ({plantaoObitoList.length}{" "}
-                                  {plantaoObitoList.length === 1 ? "registro" : "registros"})
-                                </h3>
-                              </div>
-                            </div>
+                            <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                              <FileText className="w-4 h-4 theme-accent-text" />
+                              Padrões & Seções do PDF
+                            </h2>
 
-                            <div className="space-y-3">
-                              {plantaoObitoList.map((po) => (
-                                <div key={po.ticket_id} className="p-4 rounded-2xl theme-pill space-y-2">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <span className="text-xs font-bold">
-                                      #{po.ticket_id} — {po.title}
-                                    </span>
-                                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase">
-                                      {po.status}
-                                    </span>
-                                  </div>
-                                  <div className="text-[11px] font-mono theme-text-muted flex flex-wrap gap-x-4 gap-y-1">
-                                    <span>Abertura: {po.opened_at}</span>
-                                    <span>Encerramento: {po.closed_at}</span>
-                                    <span className="theme-accent-text font-semibold">
-                                      Técnico: {po.technician}
-                                    </span>
-                                  </div>
-                                  <div className="p-3 rounded-xl bg-black/15 text-xs leading-relaxed">
-                                    <span className="font-bold uppercase text-[10px] font-mono theme-text-muted block mb-1">
-                                      Validação de Encerramento:
-                                    </span>
-                                    {po.validation_text}
-                                  </div>
-                                </div>
+                            <AnimatedSelect
+                              value=""
+                              onChange={applyTemplate}
+                              searchable={false}
+                              placeholder="Aplicar padrão salvo..."
+                              options={templates.map((t) => ({
+                                value: String(t.id),
+                                label: t.name,
+                              }))}
+                            />
+
+                            <div className="space-y-2 pt-2">
+                              {[
+                                { key: "show_glpi_tickets", label: "Chamados & Incidências GLPI" },
+                                { key: "show_plantao_obito", label: "Relatório Plantão do Óbito" },
+                                { key: "show_provimento_cnj", label: "Cronograma Provimento CNJ" },
+                                { key: "show_bitdefender", label: "Segurança Bitdefender GravityZone" },
+                                { key: "show_backups", label: "Auditoria de Backups (Zabbix / B2)" },
+                                { key: "show_glpi_inventory", label: "Inventário Unificado & EDR" },
+                              ].map((toggle) => (
+                                <label
+                                  key={toggle.key}
+                                  className="flex items-center justify-between p-3 rounded-xl theme-pill cursor-pointer"
+                                >
+                                  <span className="text-xs font-semibold">{toggle.label}</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(auditData[toggle.key as keyof AuditPayload])}
+                                    onChange={(e) =>
+                                      setAuditData({ ...auditData, [toggle.key]: e.target.checked })
+                                    }
+                                    className="w-4 h-4 accent-[#ff5a1f]"
+                                  />
+                                </label>
                               ))}
                             </div>
-                          </div>
-                        )}
 
-                        {/* Tabela Unificada de Inventário GLPI + Bitdefender GravityZone com Busca Inteligente */}
-                        {(auditData.show_glpi_inventory || auditData.show_bitdefender) &&
-                          (auditData.unified_assets?.length ?? 0) > 0 && (
-                            <div className="squircle-card p-6 space-y-4">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                  <Cpu className="w-4 h-4 theme-accent-text" />
-                                  <h3 className="text-sm font-bold uppercase tracking-wider">
-                                    Inventário Unificado &amp; Telemetria Bitdefender (
-                                    {filteredUnifiedAssets.length} /{" "}
-                                    {auditData.unified_assets.length})
-                                  </h3>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <div className="relative">
-                                    <Search className="w-3.5 h-3.5 theme-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-                                    <input
-                                      type="text"
-                                      value={assetSearch}
-                                      onChange={(e) => setAssetSearch(e.target.value)}
-                                      placeholder="Buscar hostname, IP, ID, CPU, SO..."
-                                      className="theme-input rounded-xl pl-8 pr-3 py-1.5 text-xs w-56"
-                                    />
-                                  </div>
-
-                                  <div className="flex items-center gap-1 p-1 rounded-xl theme-pill text-[11px]">
-                                    {[
-                                      { id: "all", label: "Todos" },
-                                      { id: "protected", label: "Protegidos" },
-                                      { id: "blocked", label: "Com Bloqueios" },
-                                    ].map((f) => (
-                                      <button
-                                        key={f.id}
-                                        type="button"
-                                        onClick={() =>
-                                          setAssetStatusFilter(f.id as "all" | "protected" | "blocked")
-                                        }
-                                        className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
-                                          assetStatusFilter === f.id
-                                            ? "theme-accent-bg"
-                                            : "theme-text-muted hover:opacity-85"
-                                        }`}
-                                      >
-                                        {f.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
+                            {isAdmin && (
+                              <div className="pt-3 border-t border-current/15 flex gap-2">
+                                <input
+                                  type="text"
+                                  value={newTplName}
+                                  onChange={(e) => setNewTplName(e.target.value)}
+                                  placeholder="Salvar como novo padrão..."
+                                  className="flex-1 theme-input rounded-xl px-3 py-2 text-xs"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleSaveTemplate}
+                                  className="p-2.5 rounded-xl theme-accent-bg cursor-pointer"
+                                  title="Salvar padrão"
+                                >
+                                  <BookmarkPlus className="w-4 h-4" />
+                                </button>
                               </div>
+                            )}
+                          </div>
 
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs">
-                                  <thead className="border-b border-current/15 theme-text-muted font-mono text-[10px] uppercase">
-                                    <tr>
-                                      <th className="py-2 pr-3">ID EDR</th>
-                                      <th className="py-2 pr-3">Hostname / Estação</th>
-                                      <th className="py-2 pr-3">IP</th>
-                                      <th className="py-2 pr-3">Hardware (CPU / RAM / GPU)</th>
-                                      <th className="py-2 pr-3">SO</th>
-                                      <th className="py-2 pr-3 text-center">Bloqueios</th>
-                                      <th className="py-2">Mitigação / Proteção</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-current/10">
-                                    {filteredUnifiedAssets.map((asset) => {
-                                      const serverType = isServerAsset(asset.hostname, asset.os);
-                                      return (
-                                        <tr key={`${asset.hostname}-${asset.endpoint_id}`}>
-                                          <td className="py-2.5 pr-3 font-mono text-[11px] theme-text-muted whitespace-nowrap">
-                                            {asset.endpoint_id.slice(0, 10)}
-                                          </td>
-                                          <td className="py-2.5 pr-3 font-bold whitespace-nowrap">
-                                            <span className="inline-flex items-center gap-2">
-                                              {serverType ? (
-                                                <RackServerIcon className="w-4 h-4 theme-accent-text shrink-0" />
-                                              ) : (
-                                                <WorkstationDesktopIcon className="w-4 h-4 theme-accent-text shrink-0" />
-                                              )}
-                                              <span>{asset.hostname}</span>
-                                            </span>
-                                          </td>
-                                          <td className="py-2.5 pr-3 font-mono text-[11px] whitespace-nowrap">
-                                            {asset.ip}
-                                          </td>
-                                          <td className="py-2.5 pr-3 theme-text-muted">
-                                            {asset.cpu} •{" "}
-                                            <span className="theme-accent-text font-mono font-bold">
-                                              {asset.ram}
-                                            </span>{" "}
-                                            • {asset.gpu}
-                                          </td>
-                                          <td className="py-2.5 pr-3 theme-text-muted">{asset.os}</td>
-                                          <td className="py-2.5 pr-3 text-center font-mono font-bold">
-                                            {asset.blocked_count}
-                                          </td>
-                                          <td className="py-2.5 whitespace-nowrap">
-                                            <span
-                                              className={`inline-flex items-center gap-1.5 font-semibold ${
-                                                asset.is_protected
-                                                  ? "text-emerald-500"
-                                                  : "text-amber-500"
-                                              }`}
-                                            >
-                                              <EndpointAntivirusIcon className="w-3.5 h-3.5 shrink-0" />
-                                              <span>{asset.remediation_status}</span>
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
+                          <button
+                            type="button"
+                            disabled={exporting}
+                            onClick={handleExportPdf}
+                            className="w-full py-4 px-6 rounded-2xl theme-accent-bg font-extrabold text-sm flex items-center justify-center gap-3 transition cursor-pointer"
+                          >
+                            <FileDown className="w-5 h-5" />
+                            {exporting ? "Gerando PDF Oficial..." : "Gerar e Baixar PDF Oficial"}
+                          </button>
+                        </aside>
+
+                        <section className="lg:col-span-8 space-y-6">
+                          <div className="squircle-card p-6">
+                            <label className="block text-xs font-mono uppercase tracking-wider theme-accent-text mb-2">
+                              Parecer Executivo da Engenharia (Editável)
+                            </label>
+                            <textarea
+                              rows={4}
+                              value={auditData.executive_summary || ""}
+                              onChange={(e) =>
+                                setAuditData({ ...auditData, executive_summary: e.target.value })
+                              }
+                              className="w-full theme-input rounded-xl p-4 text-sm leading-relaxed"
+                            />
+                          </div>
+
+                          <div className="grid sm:grid-cols-3 gap-4">
+                            <div className="squircle-card p-5">
+                              <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
+                                <span>CHAMADOS GLPI</span>
+                                <SuperellipseTile size="sm" tone="accent">
+                                  <IconGlpiService className="w-5 h-5" />
+                                </SuperellipseTile>
+                              </div>
+                              <div className="text-3xl font-black">
+                                {auditData.glpi_summary?.total_resolved ?? 0}
+                                <span className="text-sm font-normal theme-text-muted">
+                                  {" "}
+                                  / {auditData.glpi_summary?.total_opened ?? 0} concluídos
+                                </span>
                               </div>
                             </div>
-                          )}
 
-                        {auditData.show_backups &&
-                          auditData.backup_summary &&
-                          backupChannels.length > 0 && (
+                            <div className="squircle-card p-5">
+                              <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
+                                <span>BITDEFENDER LICENÇAS</span>
+                                <SuperellipseTile size="sm" tone="emerald">
+                                  <IconBitdefenderShield className="w-5 h-5" />
+                                </SuperellipseTile>
+                              </div>
+                              <div className="text-3xl font-black text-emerald-500">
+                                {auditData.bitdefender_summary
+                                  ? `${
+                                      auditData.bitdefender_summary.used_seats ??
+                                      auditData.bitdefender_summary.managed_endpoints
+                                    } / ${
+                                      auditData.bitdefender_summary.total_seats ??
+                                      auditData.bitdefender_summary.total_endpoints
+                                    }`
+                                  : "N/A"}
+                              </div>
+                              <div className="text-[11px] theme-text-muted mt-1">
+                                {auditData.bitdefender_summary
+                                  ? `Validade: ${
+                                      auditData.bitdefender_summary.expiration_date || "Não informada"
+                                    } • Bloqueios: ${
+                                      auditData.bitdefender_summary.total_blocked_events ?? 0
+                                    }`
+                                  : "Empresa não vinculada"}
+                              </div>
+                            </div>
+
+                            <div className="squircle-card p-5">
+                              <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
+                                <span>SLA BACKUPS (30D)</span>
+                                <SuperellipseTile size="sm" tone="sky">
+                                  <IconBackupVault className="w-5 h-5" />
+                                </SuperellipseTile>
+                              </div>
+                              <div className="text-3xl font-black">
+                                {auditData.backup_summary && backupChannels.length > 0
+                                  ? `${auditData.backup_summary.overall_sla_percent ?? 100}%`
+                                  : "N/A"}
+                              </div>
+                              <div className="text-[11px] theme-text-muted mt-1">
+                                {auditData.backup_summary
+                                  ? `${backupChannels.length} camadas auditadas`
+                                  : "Host Zabbix não vinculado"}
+                              </div>
+                            </div>
+                          </div>
+
+                          {auditData.show_plantao_obito && plantaoObitoList.length > 0 && (
                             <div className="squircle-card p-6 space-y-4">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <HardDrive className="w-4 h-4 theme-accent-text" />
+                                  <HeartPulse className="w-4 h-4 theme-accent-text" />
                                   <h3 className="text-sm font-bold uppercase tracking-wider">
-                                    Telemetria de Backups & Continuidade ({auditData.backup_summary.host_slug})
+                                    Relatório Plantão do Óbito ({plantaoObitoList.length}{" "}
+                                    {plantaoObitoList.length === 1 ? "registro" : "registros"})
                                   </h3>
                                 </div>
-                                <span className="text-xs font-mono theme-accent-text font-bold">
-                                  SLA Competência: {auditData.backup_summary.overall_sla_percent}%
-                                </span>
                               </div>
 
-                              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {backupChannels.map((ch) => (
-                                  <div
-                                    key={ch.channel}
-                                    className={`p-3.5 rounded-xl border ${
-                                      ch.is_healthy
-                                        ? "bg-emerald-500/15 border-emerald-500/35"
-                                        : "bg-red-500/15 border-red-500/35"
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs font-bold truncate">{ch.channel}</span>
-                                      <span
-                                        className={`text-[11px] font-extrabold uppercase ${
-                                          ch.is_healthy ? "text-emerald-500" : "text-red-500"
-                                        }`}
-                                      >
-                                        {ch.status}
+                              <div className="space-y-3">
+                                {plantaoObitoList.map((po) => (
+                                  <div key={po.ticket_id} className="p-4 rounded-2xl theme-pill space-y-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <span className="text-xs font-bold">
+                                        #{po.ticket_id} — {po.title}
+                                      </span>
+                                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase">
+                                        {po.status}
                                       </span>
                                     </div>
-                                    <div className="mt-1.5 flex items-center justify-between text-[11px] font-mono theme-text-muted">
-                                      <span>SLA: {ch.sla_30d_percent}%</span>
-                                      <span>{ch.last_check}</span>
+                                    <div className="text-[11px] font-mono theme-text-muted flex flex-wrap gap-x-4 gap-y-1">
+                                      <span>Abertura: {po.opened_at}</span>
+                                      <span>Encerramento: {po.closed_at}</span>
+                                      <span className="theme-accent-text font-semibold">
+                                        Técnico: {po.technician}
+                                      </span>
                                     </div>
-                                    {ch.timeline && ch.timeline.length > 0 && (
-                                      <div className="mt-2.5 flex items-center gap-1">
-                                        {ch.timeline.map((t) => (
-                                          <span
-                                            key={t.date}
-                                            title={`${t.date}: ${t.ok ? "Funcional" : "Com Falha"}`}
-                                            className={`h-2 flex-1 rounded-sm ${
-                                              t.ok ? "bg-emerald-500" : "bg-red-500"
-                                            }`}
-                                          />
-                                        ))}
-                                      </div>
-                                    )}
+                                    <div className="p-3 rounded-xl bg-black/15 text-xs leading-relaxed">
+                                      <span className="font-bold uppercase text-[10px] font-mono theme-text-muted block mb-1">
+                                        Validação de Encerramento:
+                                      </span>
+                                      {po.validation_text}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
-
-                              {(auditData.backup_summary.disk_usage?.length ?? 0) > 0 && (
-                                <div className="pt-3 border-t border-current/10 space-y-2">
-                                  <div className="text-[11px] font-mono uppercase tracking-wider theme-text-muted">
-                                    Ocupação de Disco & Armazenamento Monitorado (%)
-                                  </div>
-                                  <div className="grid sm:grid-cols-2 gap-2.5">
-                                    {auditData.backup_summary.disk_usage.map((d) => {
-                                      const isCloudOrNas =
-                                        d.volume.toLowerCase().includes("replica") ||
-                                        d.volume.toLowerCase().includes("nuvem") ||
-                                        d.volume.toLowerCase().includes("storage") ||
-                                        d.volume.toLowerCase().includes("b2");
-                                      return (
-                                        <div key={d.volume} className="p-2.5 rounded-xl theme-pill space-y-1.5">
-                                          <div className="flex items-center justify-between text-xs font-semibold gap-2">
-                                            <span className="flex items-center gap-2 truncate">
-                                              {isCloudOrNas ? (
-                                                <CloudStorageNasIcon className="w-4 h-4 theme-accent-text shrink-0" />
-                                              ) : (
-                                                <ExternalBackupDriveIcon className="w-4 h-4 theme-accent-text shrink-0" />
-                                              )}
-                                              <span className="truncate">{d.volume}</span>
-                                            </span>
-                                            <span className="font-mono shrink-0">{d.used_percent}%</span>
-                                          </div>
-                                          <div className="w-full h-1.5 rounded-full bg-current/10 overflow-hidden">
-                                            <div
-                                              style={{ width: `${Math.min(d.used_percent, 100)}%` }}
-                                              className={`h-full rounded-full ${
-                                                d.used_percent >= 90
-                                                  ? "bg-red-500"
-                                                  : d.used_percent >= 80
-                                                    ? "bg-amber-500"
-                                                    : "bg-emerald-500"
-                                              }`}
-                                            />
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           )}
 
-                        {auditData.show_provimento_cnj && auditData.provimento_cnj?.has_project && (
-                          <div className="squircle-card p-6 space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <span className="text-[11px] font-mono theme-accent-text uppercase">
-                                  Adequação Normativa • Ticket #{auditData.provimento_cnj.ticket_id}
-                                </span>
-                                <h3 className="text-base font-bold">
-                                  {auditData.provimento_cnj.project_title}
-                                </h3>
-                              </div>
-                              <span className="text-2xl font-black theme-accent-text">
-                                {auditData.provimento_cnj.progress_percent}%
-                              </span>
-                            </div>
-                            <div className="space-y-2">
-                              {cnjTasks.map((task) => (
-                                <div
-                                  key={task.id}
-                                  className="flex items-center justify-between p-3 rounded-xl theme-pill text-xs"
-                                >
-                                  <span>{task.title}</span>
-                                  <span
-                                    className={`inline-flex items-center gap-1 font-semibold ${
-                                      task.completed ? "text-emerald-500" : "text-amber-500"
-                                    }`}
-                                  >
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    {task.completed ? "Concluída" : "Em Execução"}
+                          {auditData.show_backups &&
+                            auditData.backup_summary &&
+                            backupChannels.length > 0 && (
+                              <div className="squircle-card p-6 space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <HardDrive className="w-4 h-4 theme-accent-text" />
+                                    <h3 className="text-sm font-bold uppercase tracking-wider">
+                                      Telemetria de Backups & Continuidade ({auditData.backup_summary.host_slug})
+                                    </h3>
+                                  </div>
+                                  <span className="text-xs font-mono theme-accent-text font-bold">
+                                    SLA Competência: {auditData.backup_summary.overall_sla_percent}%
                                   </span>
                                 </div>
-                              ))}
+
+                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {backupChannels.map((ch) => (
+                                    <div
+                                      key={ch.channel}
+                                      className={`p-3.5 rounded-xl border ${
+                                        ch.is_healthy
+                                          ? "bg-emerald-500/15 border-emerald-500/35"
+                                          : "bg-red-500/15 border-red-500/35"
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-bold truncate">{ch.channel}</span>
+                                        <span
+                                          className={`text-[11px] font-extrabold uppercase ${
+                                            ch.is_healthy ? "text-emerald-500" : "text-red-500"
+                                          }`}
+                                        >
+                                          {ch.status}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1.5 flex items-center justify-between text-[11px] font-mono theme-text-muted">
+                                        <span>SLA: {ch.sla_30d_percent}%</span>
+                                        <span>{ch.last_check}</span>
+                                      </div>
+                                      {ch.timeline && ch.timeline.length > 0 && (
+                                        <div className="mt-2.5 flex items-center gap-1">
+                                          {ch.timeline.map((t) => (
+                                            <span
+                                              key={t.date}
+                                              title={`${t.date}: ${t.ok ? "Funcional" : "Com Falha"}`}
+                                              className={`h-2 flex-1 rounded-sm ${
+                                                t.ok ? "bg-emerald-500" : "bg-red-500"
+                                              }`}
+                                            />
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {(auditData.backup_summary.disk_usage?.length ?? 0) > 0 && (
+                                  <div className="pt-3 border-t border-current/10 space-y-2">
+                                    <div className="text-[11px] font-mono uppercase tracking-wider theme-text-muted">
+                                      Ocupação de Disco & Armazenamento Monitorado (%)
+                                    </div>
+                                    <div className="grid sm:grid-cols-2 gap-2.5">
+                                      {auditData.backup_summary.disk_usage.map((d) => {
+                                        const isCloudOrNas =
+                                          d.volume.toLowerCase().includes("replica") ||
+                                          d.volume.toLowerCase().includes("nuvem") ||
+                                          d.volume.toLowerCase().includes("storage") ||
+                                          d.volume.toLowerCase().includes("b2");
+                                        return (
+                                          <div key={d.volume} className="p-2.5 rounded-xl theme-pill space-y-1.5">
+                                            <div className="flex items-center justify-between text-xs font-semibold gap-2">
+                                              <span className="flex items-center gap-2 truncate">
+                                                {isCloudOrNas ? (
+                                                  <CloudStorageNasIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                                ) : (
+                                                  <ExternalBackupDriveIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                                )}
+                                                <span className="truncate">{d.volume}</span>
+                                              </span>
+                                              <span className="font-mono shrink-0">{d.used_percent}%</span>
+                                            </div>
+                                            <div className="w-full h-1.5 rounded-full bg-current/10 overflow-hidden">
+                                              <div
+                                                style={{ width: `${Math.min(d.used_percent, 100)}%` }}
+                                                className={`h-full rounded-full ${
+                                                  d.used_percent >= 90
+                                                    ? "bg-red-500"
+                                                    : d.used_percent >= 80
+                                                      ? "bg-amber-500"
+                                                      : "bg-emerald-500"
+                                                }`}
+                                              />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                          {auditData.show_provimento_cnj && auditData.provimento_cnj?.has_project && (
+                            <div className="squircle-card p-6 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="text-[11px] font-mono theme-accent-text uppercase">
+                                    Adequação Normativa • Ticket #{auditData.provimento_cnj.ticket_id}
+                                  </span>
+                                  <h3 className="text-base font-bold">
+                                    {auditData.provimento_cnj.project_title}
+                                  </h3>
+                                </div>
+                                <span className="text-2xl font-black theme-accent-text">
+                                  {auditData.provimento_cnj.progress_percent}%
+                                </span>
+                              </div>
+                              <div className="space-y-2">
+                                {cnjTasks.map((task) => (
+                                  <div
+                                    key={task.id}
+                                    className="flex items-center justify-between p-3 rounded-xl theme-pill text-xs"
+                                  >
+                                    <span>{task.title}</span>
+                                    <span
+                                      className={`inline-flex items-center gap-1 font-semibold ${
+                                        task.completed ? "text-emerald-500" : "text-amber-500"
+                                      }`}
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      {task.completed ? "Concluída" : "Em Execução"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
+                        </section>
+                      </div>
+
+                      {/* Bloco Full-Width (100% da largura da tela): Inventário Unificado & Telemetria Bitdefender */}
+                      {(auditData.show_glpi_inventory || auditData.show_bitdefender) &&
+                        (auditData.unified_assets?.length ?? 0) > 0 && (
+                          <section className="squircle-card p-6 space-y-5">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                              <div className="flex items-center gap-2.5">
+                                <Cpu className="w-5 h-5 theme-accent-text" />
+                                <div>
+                                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                                    Inventário Unificado &amp; Telemetria Bitdefender (
+                                    {filteredUnifiedAssets.length} /{" "}
+                                    {auditData.unified_assets.length} ativos)
+                                  </h3>
+                                  <p className="text-[11px] theme-text-muted">
+                                    Consolidação cruzada de hardware GLPI e proteção ativa de
+                                    endpoints GravityZone.
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2.5">
+                                <div className="relative">
+                                  <Search className="w-3.5 h-3.5 theme-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                                  <input
+                                    type="text"
+                                    value={assetSearch}
+                                    onChange={(e) => setAssetSearch(e.target.value)}
+                                    placeholder="Buscar hostname, IP, ID, CPU, SO..."
+                                    className="theme-input rounded-xl pl-8 pr-3 py-2 text-xs w-64"
+                                  />
+                                </div>
+
+                                <div className="flex items-center gap-1 p-1 rounded-xl theme-pill text-[11px]">
+                                  {[
+                                    { id: "all", label: "Todos" },
+                                    { id: "protected", label: "Protegidos" },
+                                    { id: "blocked", label: "Com Bloqueios" },
+                                  ].map((f) => (
+                                    <button
+                                      key={f.id}
+                                      type="button"
+                                      onClick={() =>
+                                        setAssetStatusFilter(f.id as "all" | "protected" | "blocked")
+                                      }
+                                      className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                                        assetStatusFilter === f.id
+                                          ? "theme-accent-bg"
+                                          : "theme-text-muted hover:opacity-85"
+                                      }`}
+                                    >
+                                      {f.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-xs">
+                                <thead className="border-b border-current/15 theme-text-muted font-mono text-[10px] uppercase">
+                                  <tr>
+                                    <th className="py-3 pr-4">Estação / Hostname</th>
+                                    <th className="py-3 pr-4">Endereço IP</th>
+                                    <th className="py-3 pr-4">Processador (CPU)</th>
+                                    <th className="py-3 pr-4">Memória</th>
+                                    <th className="py-3 pr-4">Placa de Vídeo</th>
+                                    <th className="py-3 pr-4">Sistema Operacional</th>
+                                    <th className="py-3 pr-4 text-center">Bloqueios</th>
+                                    <th className="py-3">Mitigação / Proteção</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-current/10">
+                                  {filteredUnifiedAssets.map((asset) => {
+                                    const serverType = isServerAsset(asset.hostname, asset.os);
+                                    return (
+                                      <tr
+                                        key={`${asset.hostname}-${asset.endpoint_id}`}
+                                        className="hover:bg-current/[0.03] transition-colors"
+                                      >
+                                        <td className="py-3 pr-4 whitespace-nowrap">
+                                          <div className="flex items-center gap-2.5">
+                                            {serverType ? (
+                                              <RackServerIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                            ) : (
+                                              <WorkstationDesktopIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                            )}
+                                            <div>
+                                              <div className="font-bold">{asset.hostname}</div>
+                                              <div className="text-[10px] font-mono theme-text-muted">
+                                                ID EDR: {asset.endpoint_id.slice(0, 10)}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="py-3 pr-4 font-mono text-xs whitespace-nowrap">
+                                          {asset.ip}
+                                        </td>
+                                        <td className="py-3 pr-4 theme-text-muted max-w-[230px]">
+                                          {asset.cpu !== "-" ? (
+                                            asset.cpu
+                                          ) : (
+                                            <span className="italic opacity-70">
+                                              Aguardando ficha GLPI
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="py-3 pr-4 whitespace-nowrap">
+                                          {asset.ram !== "-" ? (
+                                            <span className="px-2 py-0.5 rounded-md theme-pill theme-accent-text font-mono font-bold text-[11px]">
+                                              {asset.ram}
+                                            </span>
+                                          ) : (
+                                            <span className="theme-text-muted">-</span>
+                                          )}
+                                        </td>
+                                        <td className="py-3 pr-4 theme-text-muted max-w-[180px]">
+                                          {asset.gpu !== "-" ? asset.gpu : "-"}
+                                        </td>
+                                        <td className="py-3 pr-4 theme-text-muted whitespace-nowrap">
+                                          {asset.os}
+                                        </td>
+                                        <td className="py-3 pr-4 text-center font-mono font-bold">
+                                          {asset.blocked_count}
+                                        </td>
+                                        <td className="py-3 whitespace-nowrap">
+                                          <span
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                                              asset.is_protected
+                                                ? "bg-emerald-500/15 text-emerald-500"
+                                                : "bg-amber-500/15 text-amber-500"
+                                            }`}
+                                          >
+                                            <EndpointAntivirusIcon className="w-3.5 h-3.5 shrink-0" />
+                                            <span>{asset.remediation_status}</span>
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </section>
                         )}
-                      </section>
                     </motion.div>
                   )}
                 </motion.div>
@@ -1498,7 +1525,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
           </main>
         </div>
 
-        <footer className="px-4 sm:px-8 pb-5 pt-2 max-w-7xl w-full mx-auto">
+        <footer className="px-4 sm:px-6 pb-5 pt-2 max-w-[1520px] w-full mx-auto">
           <div className="squircle-card px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono theme-text-muted">
             <span>© 2026 Gustavo Prestes • Todos os direitos reservados.</span>
             <span>Monthly Audit Platform • Engenharia & Governança</span>

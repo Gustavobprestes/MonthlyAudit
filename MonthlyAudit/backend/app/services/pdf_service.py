@@ -45,7 +45,7 @@ def _sanitize_cnj_title(raw_title: str, client_name: str = "") -> str:
 
 
 def generate_softlan_audit_pdf(audit_data: dict[str, Any], generated_by: str) -> tuple[bytes, str]:
-    """Renderiza o relatório de auditoria técnica em PDF de alta fidelidade e gera seu hash SHA-256."""
+    """Renderiza o relatório de auditoria técnica em PDF de alta fidelidade usando report_softlan.html."""
     sanitized = dict(audit_data)
     client_name = str(sanitized.get("client_name", ""))
 
@@ -64,13 +64,8 @@ def generate_softlan_audit_pdf(audit_data: dict[str, Any], generated_by: str) ->
         prov_copy["tasks"] = cleaned_tasks
         sanitized["provimento_cnj"] = prov_copy
 
-    TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
-    template_path = TEMPLATES_DIR / "audit_report.html"
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template PDF ausente em: {template_path}")
-
     env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True)
-    template = env.get_template("audit_report.html")
+    template = env.get_template("report_softlan.html")
 
     generated_at = datetime.now().strftime("%d/%m/%Y às %H:%M")
     html_str = template.render(

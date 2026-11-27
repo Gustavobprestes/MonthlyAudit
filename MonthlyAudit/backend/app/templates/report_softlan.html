@@ -5,17 +5,17 @@
   <style>
     @page {
       size: A4;
-      margin: 18mm 14mm 20mm 14mm;
+      margin: 15mm 13mm 17mm 13mm;
       @bottom-left {
-        content: "Softlan TI • Rua João Negrão, 731 • Curitiba - PR | Documento Confidencial";
+        content: "Softlan TI • Rua João Negrão, 731 • Curitiba - PR | Relatório Confidencial de Auditoria";
         font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-        font-size: 7.5pt;
+        font-size: 7.2pt;
         color: #64748b;
       }
       @bottom-right {
         content: "Página " counter(page) " de " counter(pages);
         font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-        font-size: 7.5pt;
+        font-size: 7.2pt;
         font-weight: 700;
         color: #0f172a;
       }
@@ -30,24 +30,25 @@
     body {
       font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
       color: #0f172a;
-      font-size: 8.8pt;
+      font-size: 8.5pt;
       line-height: 1.42;
     }
 
     .header-banner {
       background: linear-gradient(135deg, #0b1120 0%, #1e293b 100%);
       color: #ffffff;
-      padding: 18px 22px;
-      border-radius: 12px;
+      padding: 16px 20px;
+      border-radius: 10px;
       border-bottom: 4px solid #ff5a1f;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      break-inside: avoid;
     }
 
     .brand-title {
-      font-size: 16pt;
+      font-size: 15.5pt;
       font-weight: 800;
       letter-spacing: -0.02em;
     }
@@ -57,15 +58,16 @@
     }
 
     .brand-sub {
-      font-size: 8pt;
+      font-size: 7.8pt;
       color: #cbd5e1;
       margin-top: 2px;
     }
 
     .meta-box {
       text-align: right;
-      font-size: 8pt;
+      font-size: 7.8pt;
       color: #e2e8f0;
+      line-height: 1.45;
     }
 
     .meta-box strong {
@@ -74,45 +76,51 @@
       display: block;
     }
 
-    .section {
-      margin-bottom: 16px;
+    .section-compact {
+      margin-bottom: 14px;
+      break-inside: avoid;
       page-break-inside: avoid;
     }
 
-    .section-break-ok {
-      margin-bottom: 16px;
+    .section-flow {
+      margin-bottom: 15px;
     }
 
     .section-title {
-      font-size: 10pt;
+      font-size: 9.2pt;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       color: #0f172a;
       border-bottom: 1.5px solid #e2e8f0;
-      padding-bottom: 4px;
-      margin-bottom: 10px;
+      padding-bottom: 5px;
+      margin-bottom: 9px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      break-after: avoid;
+      page-break-after: avoid;
     }
 
     .section-title::before {
       content: "";
       display: inline-block;
-      width: 5px;
-      height: 5px;
+      width: 6px;
+      height: 6px;
       background-color: #ff5a1f;
-      border-radius: 1px;
+      border-radius: 1.5px;
+      margin-right: 8px;
+      flex-shrink: 0;
     }
 
     .summary-card {
       background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
       border-left: 3.5px solid #ff5a1f;
-      padding: 11px 14px;
+      padding: 10px 14px;
       border-radius: 6px;
       color: #334155;
-      font-size: 8.8pt;
+      font-size: 8.5pt;
+      break-inside: avoid;
     }
 
     .kpi-grid {
@@ -120,28 +128,30 @@
       width: 100%;
       table-layout: fixed;
       border-spacing: 8px 0;
-      margin: 0 -8px 12px -8px;
+      margin: 0 -8px 10px -8px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .kpi-card {
       display: table-cell;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-radius: 9px;
-      padding: 10px 12px;
+      border-radius: 8px;
+      padding: 9px 11px;
       vertical-align: top;
     }
 
     .kpi-label {
-      font-size: 7pt;
+      font-size: 6.6pt;
       font-weight: 700;
       text-transform: uppercase;
       color: #64748b;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
 
     .kpi-value {
-      font-size: 14pt;
+      font-size: 13pt;
       font-weight: 800;
       color: #0f172a;
     }
@@ -157,7 +167,17 @@
     table.data-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 7.8pt;
+      font-size: 7.5pt;
+      border: 1px solid #e2e8f0;
+    }
+
+    table.data-table thead {
+      display: table-header-group;
+    }
+
+    table.data-table tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     table.data-table th {
@@ -167,13 +187,14 @@
       padding: 6px 8px;
       font-weight: 700;
       text-transform: uppercase;
-      font-size: 7pt;
+      font-size: 6.7pt;
+      letter-spacing: 0.03em;
     }
 
     table.data-table td {
       padding: 6px 8px;
       border-bottom: 1px solid #e2e8f0;
-      vertical-align: top;
+      vertical-align: middle;
     }
 
     table.data-table tr:nth-child(even) td {
@@ -183,51 +204,87 @@
     .badge-ok {
       background-color: #dcfce7;
       color: #166534;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
       font-weight: 700;
-      font-size: 7pt;
+      font-size: 6.7pt;
       display: inline-block;
+      white-space: nowrap;
     }
 
     .badge-warn {
       background-color: #fef3c7;
       color: #92400e;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
       font-weight: 700;
-      font-size: 7pt;
+      font-size: 6.7pt;
       display: inline-block;
+      white-space: nowrap;
     }
 
     .badge-err {
       background-color: #fee2e2;
       color: #991b1b;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
       font-weight: 700;
-      font-size: 7pt;
+      font-size: 6.7pt;
       display: inline-block;
+      white-space: nowrap;
+    }
+
+    .badge-muted {
+      background-color: #f1f5f9;
+      color: #475569;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 6.7pt;
+      display: inline-block;
+    }
+
+    .hw-line {
+      font-size: 7.3pt;
+      color: #1e293b;
+      line-height: 1.35;
+    }
+
+    .hw-sub {
+      font-size: 6.8pt;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .ram-pill {
+      background-color: #fff7ed;
+      color: #c2410c;
+      border: 1px solid #fed7aa;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 700;
+      font-size: 6.6pt;
     }
 
     .cnj-hero-box {
       background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
       border: 1.5px solid #fdba74;
-      border-radius: 10px;
-      padding: 12px 16px;
+      border-radius: 9px;
+      padding: 11px 15px;
       margin-bottom: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .cnj-percent-badge {
       background-color: #ff5a1f;
       color: #ffffff;
-      font-size: 18pt;
+      font-size: 17pt;
       font-weight: 900;
-      padding: 6px 14px;
-      border-radius: 8px;
+      padding: 5px 13px;
+      border-radius: 7px;
       letter-spacing: -0.02em;
     }
 
@@ -236,8 +293,9 @@
       border: 1px solid #cbd5e1;
       border-left: 4px solid #0f172a;
       border-radius: 8px;
-      padding: 10px 12px;
+      padding: 9px 12px;
       margin-bottom: 8px;
+      break-inside: avoid;
       page-break-inside: avoid;
     }
 
@@ -245,13 +303,13 @@
       display: flex;
       justify-content: space-between;
       font-weight: 800;
-      font-size: 8.5pt;
+      font-size: 8.3pt;
       color: #0f172a;
       margin-bottom: 4px;
     }
 
     .obito-meta {
-      font-size: 7.5pt;
+      font-size: 7.3pt;
       color: #475569;
       margin-bottom: 6px;
     }
@@ -260,8 +318,8 @@
       background-color: #ffffff;
       border: 1px solid #e2e8f0;
       border-radius: 6px;
-      padding: 7px 9px;
-      font-size: 8pt;
+      padding: 6px 9px;
+      font-size: 7.7pt;
       color: #1e293b;
     }
   </style>
@@ -280,14 +338,14 @@
   </div>
 
   {% if data.executive_summary %}
-  <div class="section">
+  <div class="section-compact">
     <div class="section-title">Parecer Executivo da Engenharia</div>
     <div class="summary-card">{{ data.executive_summary }}</div>
   </div>
   {% endif %}
 
   {% if data.show_glpi_tickets and data.glpi_summary %}
-  <div class="section">
+  <div class="section-flow">
     <div class="section-title">Atendimentos &amp; Suporte Técnico (GLPI Service Desk)</div>
     <div class="kpi-grid">
       <div class="kpi-card">
@@ -308,11 +366,11 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th style="width: 55px;">ID</th>
+          <th style="width: 50px;">ID</th>
           <th>Assunto / Solicitação</th>
-          <th style="width: 145px;">Categoria</th>
-          <th style="width: 75px;">Abertura</th>
-          <th style="width: 105px;">Status</th>
+          <th style="width: 135px;">Categoria</th>
+          <th style="width: 70px;">Abertura</th>
+          <th style="width: 98px;">Status</th>
         </tr>
       </thead>
       <tbody>
@@ -331,42 +389,48 @@
   </div>
   {% endif %}
 
-  {% if data.show_plantao_obito and data.plantao_obito %}
-  <div class="section-break-ok">
+  {% if data.show_plantao_obito %}
+  <div class="section-flow">
     <div class="section-title">Relatório de Plantão do Óbito (Atendimentos Críticos)</div>
-    {% for item in data.plantao_obito %}
-    <div class="obito-card">
-      <div class="obito-header">
-        <span>#{{ item.ticket_id }} — {{ item.title }}</span>
-        <span class="badge-ok">{{ item.status }}</span>
+    {% if data.plantao_obito %}
+      {% for item in data.plantao_obito %}
+      <div class="obito-card">
+        <div class="obito-header">
+          <span>#{{ item.ticket_id }} — {{ item.title }}</span>
+          <span class="badge-ok">{{ item.status }}</span>
+        </div>
+        <div class="obito-meta">
+          <strong>Abertura:</strong> {{ item.opened_at }} &nbsp;|&nbsp;
+          <strong>Encerramento:</strong> {{ item.closed_at }} &nbsp;|&nbsp;
+          <strong>Técnico Responsável:</strong> {{ item.technician }}
+        </div>
+        <div class="obito-validation">
+          <strong>Validação de Encerramento:</strong> {{ item.validation_text }}
+        </div>
       </div>
-      <div class="obito-meta">
-        <strong>Abertura:</strong> {{ item.opened_at }} &nbsp;|&nbsp;
-        <strong>Encerramento:</strong> {{ item.closed_at }} &nbsp;|&nbsp;
-        <strong>Técnico Responsável:</strong> {{ item.technician }}
+      {% endfor %}
+    {% else %}
+      <div class="summary-card">
+        Nenhum chamado na categoria <strong>Plantão do Óbito</strong> foi registrado ou encerrado na competência {{ data.reference_month }}.
       </div>
-      <div class="obito-validation">
-        <strong>Validação de Encerramento:</strong> {{ item.validation_text }}
-      </div>
-    </div>
-    {% endfor %}
+    {% endif %}
   </div>
   {% endif %}
 
   {% if data.show_provimento_cnj and data.provimento_cnj and data.provimento_cnj.has_project %}
-  <div class="section-break-ok">
+  <div class="section-flow">
     <div class="section-title">Adequação Tecnológica — Provimento CNJ</div>
     <div class="cnj-hero-box">
       <div>
-        <div style="font-size: 7.5pt; font-weight: 700; color: #9a3412; text-transform: uppercase;">
+        <div style="font-size: 7.2pt; font-weight: 700; color: #9a3412; text-transform: uppercase;">
           Projeto de Conformidade Normativa • Ticket #{{ data.provimento_cnj.ticket_id }}
         </div>
-        <div style="font-size: 10.5pt; font-weight: 800; color: #0f172a; margin-top: 2px;">
+        <div style="font-size: 10.2pt; font-weight: 800; color: #0f172a; margin-top: 2px;">
           {{ data.provimento_cnj.project_title }}
         </div>
       </div>
       <div style="text-align: right;">
-        <div style="font-size: 6.5pt; font-weight: 800; color: #9a3412; text-transform: uppercase; margin-bottom: 2px;">
+        <div style="font-size: 6.3pt; font-weight: 800; color: #9a3412; text-transform: uppercase; margin-bottom: 2px;">
           Conclusão Global
         </div>
         <div class="cnj-percent-badge">{{ data.provimento_cnj.progress_percent }}%</div>
@@ -378,7 +442,7 @@
       <thead>
         <tr>
           <th>Etapa / Entregável Normativo</th>
-          <th style="width: 110px;">Situação</th>
+          <th style="width: 105px;">Situação</th>
         </tr>
       </thead>
       <tbody>
@@ -401,7 +465,7 @@
   {% endif %}
 
   {% if data.show_bitdefender and data.bitdefender_summary %}
-  <div class="section">
+  <div class="section-compact">
     <div class="section-title">Segurança de Endpoints &amp; Licenciamento (Bitdefender GravityZone)</div>
     <div class="kpi-grid">
       <div class="kpi-card">
@@ -428,29 +492,40 @@
   {% endif %}
 
   {% if (data.show_glpi_inventory or data.show_bitdefender) and data.unified_assets %}
-  <div class="section-break-ok">
+  <div class="section-flow">
     <div class="section-title">Inventário Unificado de Ativos &amp; Telemetria de Proteção ({{ data.unified_assets | length }} Ativos)</div>
     <table class="data-table">
       <thead>
         <tr>
-          <th style="width: 75px;">ID EDR</th>
-          <th>Hostname / Estação</th>
-          <th style="width: 82px;">IP</th>
-          <th>Hardware (CPU / RAM / GPU)</th>
-          <th>Sistema Operacional</th>
-          <th style="width: 58px;">Bloqueios</th>
-          <th style="width: 105px;">Mitigação / Status</th>
+          <th style="width: 115px;">Hostname / ID EDR</th>
+          <th style="width: 82px;">Endereço IP</th>
+          <th>Especificações de Hardware</th>
+          <th style="width: 118px;">Sistema Operacional</th>
+          <th style="width: 48px; text-align: center;">Bloq.</th>
+          <th style="width: 108px;">Proteção / Mitigação</th>
         </tr>
       </thead>
       <tbody>
         {% for asset in data.unified_assets %}
         <tr>
-          <td style="font-family: monospace; font-size: 7pt;">{{ asset.endpoint_id[:10] }}</td>
-          <td><strong>{{ asset.hostname }}</strong></td>
-          <td style="font-family: monospace;">{{ asset.ip }}</td>
-          <td>{{ asset.cpu }} • <strong>{{ asset.ram }}</strong> • {{ asset.gpu }}</td>
+          <td>
+            <div style="font-weight: 800; color: #0f172a;">{{ asset.hostname }}</div>
+            <div style="font-family: monospace; font-size: 6.6pt; color: #64748b;">ID: {{ asset.endpoint_id[:10] }}</div>
+          </td>
+          <td style="font-family: monospace; font-size: 7.3pt;">{{ asset.ip }}</td>
+          <td>
+            {% if asset.cpu != '-' or asset.ram != '-' %}
+              <div class="hw-line">
+                <strong>{{ asset.cpu if asset.cpu != '-' else 'CPU não informada' }}</strong>
+                {% if asset.ram != '-' %} &nbsp;<span class="ram-pill">{{ asset.ram }} RAM</span>{% endif %}
+              </div>
+              <div class="hw-sub">GPU: {{ asset.gpu }}</div>
+            {% else %}
+              <span class="badge-muted">Aguardando ficha técnica GLPI</span>
+            {% endif %}
+          </td>
           <td>{{ asset.os }}</td>
-          <td style="text-align: center;"><strong>{{ asset.blocked_count }}</strong></td>
+          <td style="text-align: center; font-weight: 800;">{{ asset.blocked_count }}</td>
           <td>
             {% if asset.is_protected %}
             <span class="badge-ok">{{ asset.remediation_status }}</span>
@@ -466,9 +541,9 @@
   {% endif %}
 
   {% if data.show_backups and data.backup_summary and data.backup_summary.active_channels %}
-  <div class="section-break-ok">
+  <div class="section-flow">
     <div class="section-title">Auditoria de Backups &amp; Continuidade ({{ data.backup_summary.host_slug }})</div>
-    <div class="summary-card" style="margin-bottom: 10px;">
+    <div class="summary-card" style="margin-bottom: 9px;">
       {{ data.backup_summary.analyst_note }}
     </div>
     <table class="data-table">
