@@ -184,8 +184,8 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             <h2 className="text-2xl font-bold mb-2">Portal de Auditoria</h2>
             <p className="text-sm theme-text-muted mb-8">
               Autentique-se utilizando sua conta institucional{" "}
-              <span className="font-semibold theme-text-primary">@softlanti.com.br</span> no Google
-              Workspace.
+              <span className="font-semibold theme-text-primary">@softlanti.com.br</span> ou
+              credencial Root autorizada no Google Workspace.
             </p>
 
             <div className="flex flex-col items-center justify-center py-4 px-4 rounded-2xl theme-pill">

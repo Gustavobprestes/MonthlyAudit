@@ -1,21 +1,132 @@
 import base64
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from typing import Any
 import httpx
 from app.core.config import settings
 
+logger = logging.getLogger("softlan.bitdefender")
+
 
 def _format_bd_date(raw_date: Any) -> str:
-    if not raw_date:
+    """Converte timestamps Unix (segundos/ms) ou strings ISO do GravityZone para DD/MM/YYYY."""
+    if raw_date is None or raw_date == "" or raw_date == 0:
         return "Não informada"
+
+    # Caso venha como timestamp numérico (segundos ou milissegundos)
+    if isinstance(raw_date, (int, float)):
+        ts = float(raw_date)
+        if ts > 1e11:  # milissegundos
+            ts = ts / 1000.0
+        if ts > 0:
+            return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%d/%m/%Y")
+        return "Não informada"
+
     text = str(raw_date).strip()
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+    if not text or text.lower() in ("null", "none", "n/a", "unlimited"):
+        return "Perpétua / Sem expiração" if text.lower() == "unlimited" else "Não informada"
+
+    # Timestamp numérico em string
+    if text.isdigit():
+        ts = float(text)
+        if ts > 1e11:
+            ts = ts / 1000.0
+        if ts > 0:
+            return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%d/%m/%Y")
+
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%fZ",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
+        "%d/%m/%Y",
+    ):
         try:
-            dt = datetime.strptime(text[:19], fmt[: len(text[:19])])
+            slice_len = 24 if "%f" in fmt else (19 if "%H" in fmt else 10)
+            dt = datetime.strptime(text[:slice_len], fmt)
             return dt.strftime("%d/%m/%Y")
         except ValueError:
             continue
+
     return text[:10]
+
+
+def _extract_license_fields(payload: Any) -> tuple[int, int, str, str]:
+    """Varre recursivamente dicionários/listas da resposta GravityZone em busca de assentos e vencimento."""
+    total_seats = 0
+    used_seats = 0
+    expiration_date = "Não informada"
+    product_name = "GravityZone Business Security"
+
+    seat_total_keys = (
+        "totalSlots",
+        "ownSlots",
+        "allocatedSlots",
+        "slots",
+        "seats",
+        "totalSeats",
+        "maxEndpoints",
+        "endpointsLimit",
+    )
+    seat_used_keys = ("usedSlots", "usedSeats", "activeEndpoints", "managedEndpoints")
+    expiry_keys = (
+        "expirationDate",
+        "subscriptionExpirationDate",
+        "licenseExpirationDate",
+        "expiryDate",
+        "expiresAt",
+        "validUntil",
+        "endDate",
+        "expiration",
+    )
+    product_keys = ("productName", "solutionName", "licenseType", "subscriptionType", "planName")
+
+    def _walk(node: Any) -> None:
+        nonlocal total_seats, used_seats, expiration_date, product_name
+        if isinstance(node, dict):
+            if total_seats == 0:
+                for k in seat_total_keys:
+                    val = node.get(k)
+                    if isinstance(val, (int, float)) and val > 0:
+                        total_seats = int(val)
+                        break
+                    if isinstance(val, str) and val.isdigit() and int(val) > 0:
+                        total_seats = int(val)
+                        break
+
+            if used_seats == 0:
+                for k in seat_used_keys:
+                    val = node.get(k)
+                    if isinstance(val, (int, float)) and val > 0:
+                        used_seats = int(val)
+                        break
+                    if isinstance(val, str) and val.isdigit() and int(val) > 0:
+                        used_seats = int(val)
+                        break
+
+            if expiration_date == "Não informada":
+                for k in expiry_keys:
+                    if k in node and node[k]:
+                        formatted = _format_bd_date(node[k])
+                        if formatted != "Não informada":
+                            expiration_date = formatted
+                            break
+
+            for k in product_keys:
+                if isinstance(node.get(k), str) and node[k].strip():
+                    product_name = node[k].strip()
+                    break
+
+            for v in node.values():
+                if isinstance(v, (dict, list)):
+                    _walk(v)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(payload)
+    return total_seats, used_seats, expiration_date, product_name
 
 
 class BitdefenderService:
@@ -89,56 +200,76 @@ class BitdefenderService:
                 return []
 
     async def _fetch_license_details(self, company_id: str) -> dict[str, Any]:
-        """Obtém total de assentos/licenças contratadas e data de expiração da empresa."""
+        """Consulta getCompanyDetails, getCompaniesList e licensing/getLicenseInfo para extrair assentos e vencimento."""
         total_seats = 0
         used_seats = 0
         expiration_date = "Não informada"
         product_name = "GravityZone Business Security"
 
-        # 1. Tenta via companies/getCompanyDetails
+        # 1. Consulta detalhes diretos da empresa (companies/getCompanyDetails)
         try:
             details = await self._rpc("companies", "getCompanyDetails", {"companyId": company_id})
-            if isinstance(details, dict):
-                lic = details.get("license") or details.get("subscription") or {}
-                if isinstance(lic, dict):
-                    total_seats = int(
-                        lic.get("totalSlots")
-                        or lic.get("slots")
-                        or lic.get("seats")
-                        or 0
-                    )
-                    used_seats = int(lic.get("usedSlots") or lic.get("usedSeats") or 0)
-                    raw_exp = lic.get("expirationDate") or lic.get("expiresAt") or lic.get("validUntil")
-                    if raw_exp:
-                        expiration_date = _format_bd_date(raw_exp)
-                    if lic.get("productName"):
-                        product_name = str(lic["productName"])
-        except Exception:
-            pass
+            if details:
+                t, u, exp, prod = _extract_license_fields(details)
+                if t > 0:
+                    total_seats = t
+                if u > 0:
+                    used_seats = u
+                if exp != "Não informada":
+                    expiration_date = exp
+                if prod:
+                    product_name = prod
+        except Exception as exc:
+            logger.debug("getCompanyDetails indisponível para %s: %s", company_id, exc)
 
-        # 2. Complementa ou faz fallback via licensing/getLicenseInfo
+        # 2. Consulta licenciamento específico da empresa (licensing/getLicenseInfo)
         if total_seats == 0 or expiration_date == "Não informada":
             try:
                 lic_info = await self._rpc("licensing", "getLicenseInfo", {"companyId": company_id})
-                if isinstance(lic_info, dict):
-                    if total_seats == 0:
-                        total_seats = int(
-                            lic_info.get("totalSlots")
-                            or lic_info.get("ownSlots")
-                            or lic_info.get("seats")
-                            or 0
-                        )
-                    if used_seats == 0:
-                        used_seats = int(lic_info.get("usedSlots") or 0)
-                    raw_exp = (
-                        lic_info.get("expirationDate")
-                        or lic_info.get("subscriptionExpirationDate")
-                        or lic_info.get("validUntil")
+                if lic_info:
+                    t, u, exp, prod = _extract_license_fields(lic_info)
+                    if total_seats == 0 and t > 0:
+                        total_seats = t
+                    if used_seats == 0 and u > 0:
+                        used_seats = u
+                    if expiration_date == "Não informada" and exp != "Não informada":
+                        expiration_date = exp
+                    if prod and product_name == "GravityZone Business Security":
+                        product_name = prod
+            except Exception as exc:
+                logger.debug("licensing/getLicenseInfo indisponível para %s: %s", company_id, exc)
+
+        # 3. Fallback: varre getCompaniesList procurando o objeto da empresa pelo ID
+        if total_seats == 0 or expiration_date == "Não informada":
+            try:
+                page = 1
+                while page <= 5:
+                    res = await self._rpc(
+                        "companies",
+                        "getCompaniesList",
+                        {"page": page, "perPage": 100},
                     )
-                    if raw_exp and expiration_date == "Não informada":
-                        expiration_date = _format_bd_date(raw_exp)
-            except Exception:
-                pass
+                    items = res.get("items", []) if isinstance(res, dict) else (res or [])
+                    if not items:
+                        break
+                    matched = next((c for c in items if str(c.get("id")) == str(company_id)), None)
+                    if matched:
+                        t, u, exp, prod = _extract_license_fields(matched)
+                        if total_seats == 0 and t > 0:
+                            total_seats = t
+                        if used_seats == 0 and u > 0:
+                            used_seats = u
+                        if expiration_date == "Não informada" and exp != "Não informada":
+                            expiration_date = exp
+                        if prod and product_name == "GravityZone Business Security":
+                            product_name = prod
+                        break
+                    pages_count = int(res.get("pagesCount", 1)) if isinstance(res, dict) else 1
+                    if page >= pages_count:
+                        break
+                    page += 1
+            except Exception as exc:
+                logger.debug("Fallback getCompaniesList falhou para %s: %s", company_id, exc)
 
         return {
             "total_seats": total_seats,
@@ -258,6 +389,7 @@ class BitdefenderService:
                 "endpoints": endpoint_rows,
             }
         except Exception as exc:
+            logger.exception("Erro ao coletar auditoria Bitdefender para %s: %s", company_id, exc)
             return {
                 "total_endpoints": 0,
                 "managed_endpoints": 0,

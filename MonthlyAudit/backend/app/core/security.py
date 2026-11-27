@@ -10,7 +10,22 @@ ALGORITHM = "HS256"
 SESSION_EXPIRE_HOURS = 12
 
 
+def is_authorized_email(email: str, hosted_domain: str = "") -> bool:
+    """Permite contas Root explícitas ou contas corporativas @softlanti.com.br."""
+    normalized = email.strip().lower()
+    if normalized in settings.root_admin_set:
+        return True
+    domain = settings.ALLOWED_GOOGLE_DOMAIN.strip().lower()
+    return hosted_domain.lower() == domain and normalized.endswith(f"@{domain}")
+
+
 def verify_google_workspace_token(credential: str) -> dict:
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GOOGLE_CLIENT_ID não configurado no servidor.",
+        )
+
     try:
         idinfo = id_token.verify_oauth2_token(
             credential,
@@ -23,8 +38,14 @@ def verify_google_workspace_token(credential: str) -> dict:
             detail=f"Token Google inválido: {exc}",
         ) from exc
 
-    email: str = idinfo.get("email", "")
-    hosted_domain: str = idinfo.get("hd", "")
+    if idinfo.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Emissor de identidade inválido.",
+        )
+
+    email: str = str(idinfo.get("email", "")).strip().lower()
+    hosted_domain: str = str(idinfo.get("hd", "")).strip().lower()
 
     if not idinfo.get("email_verified"):
         raise HTTPException(
@@ -32,28 +53,30 @@ def verify_google_workspace_token(credential: str) -> dict:
             detail="E-mail Google não verificado.",
         )
 
-    if hosted_domain != settings.ALLOWED_GOOGLE_DOMAIN or not email.endswith(
-        f"@{settings.ALLOWED_GOOGLE_DOMAIN}"
-    ):
+    if not is_authorized_email(email, hosted_domain):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Acesso restrito exclusivamente a contas @{settings.ALLOWED_GOOGLE_DOMAIN}.",
         )
 
     return {
-        "email": email.lower(),
-        "name": idinfo.get("name", email.split("@")[0]),
+        "email": email,
+        "name": idinfo.get("name") or email.split("@")[0],
         "picture": idinfo.get("picture", ""),
     }
 
 
 def create_session_jwt(user_data: dict, role: str = "user") -> str:
-    expire = datetime.now(timezone.utc) + timedelta(hours=SESSION_EXPIRE_HOURS)
+    email = user_data["email"].strip().lower()
+    effective_role = "admin" if email in settings.root_admin_set else role
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(hours=SESSION_EXPIRE_HOURS)
     payload = {
-        "sub": user_data["email"].lower(),
+        "sub": email,
         "name": user_data["name"],
         "picture": user_data.get("picture", ""),
-        "role": role,
+        "role": effective_role,
+        "iat": now,
         "exp": expire,
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
@@ -66,12 +89,21 @@ def get_current_user(softlan_session: str | None = Cookie(default=None)) -> dict
             detail="Sessão expirada ou não autenticada. Faça login novamente.",
         )
     try:
-        payload = jwt.decode(softlan_session, settings.SECRET_KEY, algorithms=[ALGORITHM])
-        email = str(payload.get("sub", "")).lower()
-        effective_role = (
-            "admin" if email in settings.admin_email_set else payload.get("role", "user")
+        payload = jwt.decode(
+            softlan_session,
+            settings.SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={"require": ["exp", "sub"]},
         )
-        payload["role"] = effective_role
+        email = str(payload.get("sub", "")).strip().lower()
+        if not is_authorized_email(email, email.split("@")[-1] if "@" in email else ""):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Domínio não autorizado.",
+            )
+        payload["role"] = (
+            "admin" if email in settings.root_admin_set else payload.get("role", "user")
+        )
         return payload
     except PyJWTError as exc:
         raise HTTPException(

@@ -28,17 +28,17 @@ router = APIRouter(prefix="/api/v1")
 
 
 async def _sync_user_account(db: AsyncSession, user_info: dict) -> UserAccount:
-    """Cria ou atualiza o registro do usuário no PostgreSQL e determina seu papel (admin vs user)."""
-    email = user_info["email"].lower()
+    """Cria ou atualiza o registro do usuário no PostgreSQL e aplica proteção Root Admin."""
+    email = user_info["email"].strip().lower()
     res = await db.execute(select(UserAccount).where(UserAccount.email == email))
     account = res.scalar_one_or_none()
-    is_env_admin = email in settings.admin_email_set
+    is_root = email in settings.root_admin_set
 
     if account:
         account.name = user_info.get("name") or account.name
         if user_info.get("picture"):
             account.picture = user_info["picture"]
-        if is_env_admin and account.role != "admin":
+        if is_root and account.role != "admin":
             account.role = "admin"
         await db.commit()
         await db.refresh(account)
@@ -48,7 +48,7 @@ async def _sync_user_account(db: AsyncSession, user_info: dict) -> UserAccount:
         email=email,
         name=user_info.get("name", email.split("@")[0]),
         picture=user_info.get("picture", ""),
-        role="admin" if is_env_admin else "user",
+        role="admin" if is_root else "user",
     )
     db.add(account)
     await db.commit()
@@ -91,10 +91,10 @@ async def login_dev_mock(
 ):
     if not settings.DEV_MOCK_MODE:
         raise HTTPException(status_code=403, detail="Modo de simulação desabilitado em produção.")
-    mock_email = next(iter(settings.admin_email_set), "engenharia@softlanti.com.br")
+    mock_email = "gustavo@softlanti.com.br"
     mock_user = {
         "email": mock_email,
-        "name": "Analista Softlan TI (Modo Local)",
+        "name": "Gustavo Prestes (Modo Local)",
         "picture": "",
     }
     account = await _sync_user_account(db, mock_user)
@@ -127,7 +127,7 @@ async def auth_me(
     account = res.scalar_one_or_none()
     if account:
         effective_role = (
-            "admin" if account.email in settings.admin_email_set else account.role
+            "admin" if account.email in settings.root_admin_set else account.role
         )
         user["role"] = effective_role
         user["name"] = account.name
@@ -157,8 +157,8 @@ async def list_registered_users(
             "email": u.email,
             "name": u.name,
             "picture": u.picture,
-            "role": "admin" if u.email in settings.admin_email_set else u.role,
-            "is_env_locked": u.email in settings.admin_email_set,
+            "role": "admin" if u.email in settings.root_admin_set else u.role,
+            "is_env_locked": u.email in settings.root_admin_set,
             "last_login": u.last_login,
         }
         for u in users
@@ -176,10 +176,15 @@ async def update_user_role(
     account = res.scalar_one_or_none()
     if not account:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-    if account.email in settings.admin_email_set and payload.role != "admin":
+    if account.email in settings.root_admin_set:
+        raise HTTPException(
+            status_code=403,
+            detail="Contas Root Admin (gustavo@softlanti.com.br e gbonaguraprestes@gmail.com) são protegidas e imutáveis.",
+        )
+    if account.email == admin["sub"].lower() and payload.role != "admin":
         raise HTTPException(
             status_code=400,
-            detail="Este usuário está definido como Administrador mestre no arquivo .env.",
+            detail="Você não pode remover seu próprio privilégio administrativo.",
         )
     account.role = payload.role
     await db.commit()

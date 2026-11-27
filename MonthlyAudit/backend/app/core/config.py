@@ -1,5 +1,10 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+ROOT_ADMIN_EMAILS = {
+    "gustavo@softlanti.com.br",
+    "gbonaguraprestes@gmail.com",
+}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -10,7 +15,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALLOWED_GOOGLE_DOMAIN: str = "softlanti.com.br"
     GOOGLE_CLIENT_ID: str = ""
-    ADMIN_EMAILS: str = ""
+    ADMIN_EMAILS: str = "gustavo@softlanti.com.br,gbonaguraprestes@gmail.com"
 
     DATABASE_URL: str
 
@@ -29,8 +34,9 @@ class Settings(BaseSettings):
     ZABBIX_BACKUP_GROUP: str = "LogsBackups"
 
     @property
-    def admin_email_set(self) -> set[str]:
-        return {e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()}
+    def root_admin_set(self) -> set[str]:
+        env_admins = {e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()}
+        return ROOT_ADMIN_EMAILS | env_admins
 
 
 settings = Settings()
