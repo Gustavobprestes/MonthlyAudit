@@ -30,6 +30,20 @@ import { HeroShaderCanvas } from "../components/HeroShaderCanvas";
 import { SoftlanBrand } from "../components/SoftlanBrand";
 import { AnimatedSelect } from "../components/AnimatedSelect";
 import { ClientMappingModal } from "../components/ClientMappingModal";
+import {
+  SuperellipseTile,
+  IconGlpiService,
+  IconBitdefenderShield,
+  IconBackupVault,
+  WorkstationDesktopIcon,
+  RackServerIcon,
+  CloudStorageNasIcon,
+  ExternalBackupDriveIcon,
+  EndpointAntivirusIcon,
+  EmptyAuditStudioIllustration,
+  EmptyHistoryVaultIllustration,
+  CryptographicAuditSeal,
+} from "../components/SoftlanSystemIcons";
 import { apiFetch, apiDownloadPdf } from "../lib/api";
 import type {
   AppTheme,
@@ -56,6 +70,20 @@ const THEMES: { value: AppTheme; label: string; sublabel: string }[] = [
   { value: "cyberpunk", label: "Cyberpunk 2077", sublabel: "Neon Amarelo & Ciano" },
 ];
 
+function isServerAsset(name: string, os: string): boolean {
+  const combined = `${name} ${os}`.toLowerCase();
+  return (
+    combined.includes("server") ||
+    combined.includes("srv") ||
+    combined.includes("linux") ||
+    combined.includes("debian") ||
+    combined.includes("ubuntu") ||
+    combined.includes("proxmox") ||
+    combined.includes("vmware") ||
+    combined.includes("hyper-v")
+  );
+}
+
 export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   const isAdmin = user.role === "admin";
 
@@ -66,7 +94,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   const [themeWaveKey, setThemeWaveKey] = useState<number>(0);
 
   const [tab, setTab] = useState<"audit" | "history" | "admin">("audit");
-  // Sidebar retrátil unificada (desktop e mobile) controlada pelo botão no Header
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => window.innerWidth >= 1024);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -262,7 +289,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
           </button>
         </div>
 
-        {/* Navegação Principal */}
         <div className="space-y-1.5">
           <div className="text-[10px] font-mono uppercase tracking-widest theme-text-muted px-3 mb-2">
             Navegação
@@ -322,7 +348,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
           )}
         </div>
 
-        {/* Configurações & Dropdown Seletor de Temas */}
         <div className="pt-4 border-t border-current/15 space-y-2.5">
           <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest theme-text-muted px-1">
             <Palette className="w-3.5 h-3.5 theme-accent-text" />
@@ -337,7 +362,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
         </div>
       </div>
 
-      {/* Rodapé da Sidebar */}
       <div className="pt-4 border-t border-current/15 text-[11px] font-mono theme-text-muted space-y-1">
         <div className="flex items-center justify-between">
           <span>Perfil Ativo:</span>
@@ -352,10 +376,8 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
 
   return (
     <div className="relative min-h-screen flex overflow-x-hidden">
-      {/* Plano de Fundo Interativo WebGL com transição suave */}
       <HeroShaderCanvas theme={theme} />
 
-      {/* Efeito Onda Cinemática ao Trocar de Tema */}
       <AnimatePresence>
         {themeWaveKey > 0 && (
           <motion.div
@@ -373,7 +395,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
         )}
       </AnimatePresence>
 
-      {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -388,7 +409,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar Desktop Retrátil (controlada pelo botão no Header) */}
       <AnimatePresence initial={false}>
         {sidebarOpen && (
           <motion.aside
@@ -407,7 +427,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar Mobile Drawer */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -431,14 +450,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
         )}
       </AnimatePresence>
 
-      {/* Coluna Principal (Header Superior + Conteúdo + Footer) */}
       <div className="flex-1 min-w-0 flex flex-col justify-between relative z-10 min-h-screen">
         <div>
-          {/* Header Superior com Botão Retrátil da Sidebar */}
           <header className="sticky top-0 z-30 px-4 sm:px-8 pt-4">
             <div className="squircle-card px-4 sm:px-5 h-16 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                {/* Botão Retrátil do Menu Lateral (funciona no Desktop e no Mobile) */}
                 <button
                   type="button"
                   onClick={() => setSidebarOpen((prev) => !prev)}
@@ -473,7 +489,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                 </div>
               </div>
 
-              {/* Menu de Conta */}
               <div ref={accountMenuRef} className="relative">
                 <button
                   type="button"
@@ -547,10 +562,8 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
             </div>
           </header>
 
-          {/* Área de Conteúdo */}
           <main className="px-4 sm:px-8 py-6 max-w-7xl w-full mx-auto">
             <AnimatePresence mode="wait">
-              {/* ==================== ABA 1: ESTÚDIO DE AUDITORIA ==================== */}
               {tab === "audit" && (
                 <motion.div
                   key="tab-audit"
@@ -599,10 +612,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     </div>
                   </section>
 
-                  {clients.length === 0 && (
-                    <div className="squircle-card p-10 text-center space-y-3">
+                  {clients.length === 0 ? (
+                    <div className="squircle-card p-10 text-center space-y-4">
+                      <EmptyAuditStudioIllustration />
                       <p className="text-sm theme-text-muted">
-                        Nenhum cliente/ecossistema foi vinculado ainda.
+                        Nenhum cliente ou ecossistema foi vinculado ainda.
                       </p>
                       {isAdmin && (
                         <button
@@ -615,6 +629,17 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                         </button>
                       )}
                     </div>
+                  ) : (
+                    !auditData && (
+                      <div className="squircle-card p-10 text-center space-y-3">
+                        <EmptyAuditStudioIllustration />
+                        <h3 className="text-sm font-bold">Pronto para Consolidar Telemetria</h3>
+                        <p className="text-xs theme-text-muted max-w-md mx-auto">
+                          Selecione um cliente mapeado e a competência desejada acima para extrair
+                          chamados GLPI, licenciamento Bitdefender e SLA de backups Backblaze/Zabbix.
+                        </p>
+                      </div>
+                    )
                   )}
 
                   {auditData && (
@@ -715,9 +740,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
 
                         <div className="grid sm:grid-cols-3 gap-4">
                           <div className="squircle-card p-5">
-                            <div className="flex items-center justify-between text-xs theme-text-muted mb-2">
+                            <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
                               <span>CHAMADOS GLPI</span>
-                              <Ticket className="w-4 h-4 theme-accent-text" />
+                              <SuperellipseTile size="sm" tone="accent">
+                                <IconGlpiService className="w-5 h-5" />
+                              </SuperellipseTile>
                             </div>
                             <div className="text-3xl font-black">
                               {auditData.glpi_summary?.total_resolved ?? 0}
@@ -729,9 +756,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                           </div>
 
                           <div className="squircle-card p-5">
-                            <div className="flex items-center justify-between text-xs theme-text-muted mb-2">
+                            <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
                               <span>BITDEFENDER LICENÇAS</span>
-                              <Shield className="w-4 h-4 text-emerald-500" />
+                              <SuperellipseTile size="sm" tone="emerald">
+                                <IconBitdefenderShield className="w-5 h-5" />
+                              </SuperellipseTile>
                             </div>
                             <div className="text-3xl font-black text-emerald-500">
                               {auditData.bitdefender_summary
@@ -754,9 +783,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                           </div>
 
                           <div className="squircle-card p-5">
-                            <div className="flex items-center justify-between text-xs theme-text-muted mb-2">
+                            <div className="flex items-center justify-between text-xs theme-text-muted mb-3">
                               <span>SLA BACKUPS (30D)</span>
-                              <HardDrive className="w-4 h-4 theme-accent-text" />
+                              <SuperellipseTile size="sm" tone="sky">
+                                <IconBackupVault className="w-5 h-5" />
+                              </SuperellipseTile>
                             </div>
                             <div className="text-3xl font-black">
                               {auditData.backup_summary && backupChannels.length > 0
@@ -771,7 +802,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                           </div>
                         </div>
 
-                        {/* Painel NOC Backups & Disco (B2Client X-Ray) */}
                         {auditData.show_backups &&
                           auditData.backup_summary &&
                           backupChannels.length > 0 && (
@@ -832,29 +862,43 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                               {(auditData.backup_summary.disk_usage?.length ?? 0) > 0 && (
                                 <div className="pt-3 border-t border-current/10 space-y-2">
                                   <div className="text-[11px] font-mono uppercase tracking-wider theme-text-muted">
-                                    Ocupação de Disco Monitorada (%)
+                                    Ocupação de Disco & Armazenamento Monitorado (%)
                                   </div>
                                   <div className="grid sm:grid-cols-2 gap-2.5">
-                                    {auditData.backup_summary.disk_usage.map((d) => (
-                                      <div key={d.volume} className="p-2.5 rounded-xl theme-pill space-y-1.5">
-                                        <div className="flex justify-between text-xs font-semibold">
-                                          <span className="truncate pr-2">{d.volume}</span>
-                                          <span className="font-mono">{d.used_percent}%</span>
+                                    {auditData.backup_summary.disk_usage.map((d) => {
+                                      const isCloudOrNas =
+                                        d.volume.toLowerCase().includes("replica") ||
+                                        d.volume.toLowerCase().includes("nuvem") ||
+                                        d.volume.toLowerCase().includes("storage") ||
+                                        d.volume.toLowerCase().includes("b2");
+                                      return (
+                                        <div key={d.volume} className="p-2.5 rounded-xl theme-pill space-y-1.5">
+                                          <div className="flex items-center justify-between text-xs font-semibold gap-2">
+                                            <span className="flex items-center gap-2 truncate">
+                                              {isCloudOrNas ? (
+                                                <CloudStorageNasIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                              ) : (
+                                                <ExternalBackupDriveIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                              )}
+                                              <span className="truncate">{d.volume}</span>
+                                            </span>
+                                            <span className="font-mono shrink-0">{d.used_percent}%</span>
+                                          </div>
+                                          <div className="w-full h-1.5 rounded-full bg-current/10 overflow-hidden">
+                                            <div
+                                              style={{ width: `${Math.min(d.used_percent, 100)}%` }}
+                                              className={`h-full rounded-full ${
+                                                d.used_percent >= 90
+                                                  ? "bg-red-500"
+                                                  : d.used_percent >= 80
+                                                    ? "bg-amber-500"
+                                                    : "bg-emerald-500"
+                                              }`}
+                                            />
+                                          </div>
                                         </div>
-                                        <div className="w-full h-1.5 rounded-full bg-current/10 overflow-hidden">
-                                          <div
-                                            style={{ width: `${Math.min(d.used_percent, 100)}%` }}
-                                            className={`h-full rounded-full ${
-                                              d.used_percent >= 90
-                                                ? "bg-red-500"
-                                                : d.used_percent >= 80
-                                                  ? "bg-amber-500"
-                                                  : "bg-emerald-500"
-                                            }`}
-                                          />
-                                        </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               )}
@@ -913,7 +957,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                               <table className="w-full text-left text-xs">
                                 <thead className="border-b border-current/15 theme-text-muted font-mono text-[10px] uppercase">
                                   <tr>
-                                    <th className="py-2 pr-3">Estação</th>
+                                    <th className="py-2 pr-3">Ativo / Estação</th>
                                     <th className="py-2 pr-3">Processador</th>
                                     <th className="py-2 pr-3">RAM</th>
                                     <th className="py-2 pr-3">Placa de Vídeo</th>
@@ -922,26 +966,39 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-current/10">
-                                  {inventoryMachines.map((m) => (
-                                    <tr key={m.name}>
-                                      <td className="py-2.5 pr-3 font-bold whitespace-nowrap">
-                                        {m.name}
-                                      </td>
-                                      <td className="py-2.5 pr-3 theme-text-muted">
-                                        {m.cpu || "Não informado"}
-                                      </td>
-                                      <td className="py-2.5 pr-3 theme-accent-text font-mono font-bold whitespace-nowrap">
-                                        {m.ram || "-"}
-                                      </td>
-                                      <td className="py-2.5 pr-3 theme-text-muted">
-                                        {m.gpu || "Integrada"}
-                                      </td>
-                                      <td className="py-2.5 pr-3 theme-text-muted">{m.os}</td>
-                                      <td className="py-2.5 text-emerald-500 font-semibold">
-                                        {m.antivirus || "Não detectado"}
-                                      </td>
-                                    </tr>
-                                  ))}
+                                  {inventoryMachines.map((m) => {
+                                    const serverType = isServerAsset(m.name, m.os);
+                                    return (
+                                      <tr key={m.name}>
+                                        <td className="py-2.5 pr-3 font-bold whitespace-nowrap">
+                                          <span className="inline-flex items-center gap-2">
+                                            {serverType ? (
+                                              <RackServerIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                            ) : (
+                                              <WorkstationDesktopIcon className="w-4 h-4 theme-accent-text shrink-0" />
+                                            )}
+                                            <span>{m.name}</span>
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 pr-3 theme-text-muted">
+                                          {m.cpu || "Não informado"}
+                                        </td>
+                                        <td className="py-2.5 pr-3 theme-accent-text font-mono font-bold whitespace-nowrap">
+                                          {m.ram || "-"}
+                                        </td>
+                                        <td className="py-2.5 pr-3 theme-text-muted">
+                                          {m.gpu || "Integrada"}
+                                        </td>
+                                        <td className="py-2.5 pr-3 theme-text-muted">{m.os}</td>
+                                        <td className="py-2.5 text-emerald-500 font-semibold">
+                                          <span className="inline-flex items-center gap-1.5">
+                                            <EndpointAntivirusIcon className="w-3.5 h-3.5 shrink-0" />
+                                            <span>{m.antivirus || "Não detectado"}</span>
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </div>
@@ -953,7 +1010,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                 </motion.div>
               )}
 
-              {/* ==================== ABA 2: HISTÓRICO DE PDFs ==================== */}
               {tab === "history" && (
                 <motion.section
                   key="tab-history"
@@ -966,9 +1022,12 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     Histórico Imutável de Relatórios Gerados
                   </h2>
                   {history.length === 0 ? (
-                    <p className="text-sm theme-text-muted py-8 text-center">
-                      Nenhum relatório emitido até o momento.
-                    </p>
+                    <div className="py-10 text-center space-y-3">
+                      <EmptyHistoryVaultIllustration />
+                      <p className="text-sm theme-text-muted">
+                        Nenhum relatório emitido até o momento.
+                      </p>
+                    </div>
                   ) : (
                     <div className="divide-y divide-current/10">
                       {history.map((item) => (
@@ -976,12 +1035,12 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                           key={item.id}
                           className="py-4 flex flex-wrap items-center justify-between gap-4"
                         >
-                          <div>
+                          <div className="space-y-1">
                             <div className="text-sm font-bold">{item.client_name}</div>
                             <div className="text-xs theme-text-muted font-mono">
-                              Competência: {item.reference_month} • Modelo: {item.template_name} •
-                              SHA-256: {item.sha256_hash.slice(0, 12)}...
+                              Competência: {item.reference_month} • Modelo: {item.template_name}
                             </div>
+                            <CryptographicAuditSeal hash={item.sha256_hash} />
                           </div>
                           <a
                             href={`/api/v1/audit/history/${item.id}/reprint`}
@@ -996,7 +1055,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                 </motion.section>
               )}
 
-              {/* ==================== ABA 3: ADMINISTRAÇÃO (RBAC ADMIN) ==================== */}
               {tab === "admin" && isAdmin && (
                 <motion.div
                   key="tab-admin"
@@ -1029,9 +1087,12 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     </div>
 
                     {clients.length === 0 ? (
-                      <div className="squircle-card p-10 text-center text-sm theme-text-muted">
-                        Nenhum ecossistema cadastrado no PostgreSQL. Clique em &ldquo;Criar Novo
-                        Ecossistema&rdquo;.
+                      <div className="squircle-card p-10 text-center space-y-3">
+                        <EmptyAuditStudioIllustration />
+                        <p className="text-sm theme-text-muted">
+                          Nenhum ecossistema cadastrado no PostgreSQL. Clique em &ldquo;Criar Novo
+                          Ecossistema&rdquo;.
+                        </p>
                       </div>
                     ) : (
                       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -1147,7 +1208,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                               <td className="py-3 text-right">
                                 {u.is_env_locked ? (
                                   <span className="text-[11px] font-mono theme-text-muted">
-                                    Admin Mestre (.env)
+                                    Root Admin Protegido
                                   </span>
                                 ) : (
                                   <button
@@ -1175,7 +1236,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
           </main>
         </div>
 
-        {/* Footer Exclusivo com Direitos Reservados a Gustavo Prestes */}
         <footer className="px-4 sm:px-8 pb-5 pt-2 max-w-7xl w-full mx-auto">
           <div className="squircle-card px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono theme-text-muted">
             <span>© 2026 Gustavo Prestes • Todos os direitos reservados.</span>
@@ -1184,7 +1244,6 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
         </footer>
       </div>
 
-      {/* Modal de Criação / Edição de Ecossistema (Apenas Admin) */}
       {isAdmin && (
         <ClientMappingModal
           open={modalOpen}

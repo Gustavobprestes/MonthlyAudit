@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { ShieldCheck, Activity, FileCheck2, Lock } from "lucide-react";
+import { Activity, Lock } from "lucide-react";
 import { HeroShaderCanvas } from "../components/HeroShaderCanvas";
 import { SoftlanBrand } from "../components/SoftlanBrand";
+import {
+  SuperellipseTile,
+  IconBitdefenderShield,
+  IconProvimentoCnj,
+  IconBackupVault,
+} from "../components/SoftlanSystemIcons";
 import { apiFetch } from "../lib/api";
 import type { AppTheme, UserProfile } from "../types/audit";
 
@@ -33,6 +39,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
   const [loading, setLoading] = useState(false);
 
   const savedTheme = (localStorage.getItem("softlan_theme") as AppTheme) || "softlan";
+  const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", savedTheme);
@@ -50,9 +57,10 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
   });
 
   useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
     const initGoogle = () => {
-      if (!window.google || !googleBtnRef.current || !clientId) return;
+      if (!window.google || !googleBtnRef.current) return;
       window.google.accounts.id.initialize({
         client_id: clientId,
         hd: "softlanti.com.br",
@@ -89,7 +97,22 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
     }, 200);
 
     return () => clearInterval(timer);
-  }, [onSuccess]);
+  }, [clientId, onSuccess]);
+
+  const handleDevLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiFetch<{ user: UserProfile }>("/api/v1/auth/dev-login", {
+        method: "POST",
+      });
+      onSuccess(data.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao entrar no modo local.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div
@@ -155,14 +178,33 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 max-w-xl"
           >
             {[
-              { icon: ShieldCheck, label: "GravityZone", sub: "Segurança Ativa" },
-              { icon: FileCheck2, label: "Provimento CNJ", sub: "Trilha Auditável" },
-              { icon: Activity, label: "Backblaze & Zabbix", sub: "SLA Contínuo" },
+              {
+                Icon: IconBitdefenderShield,
+                tone: "emerald" as const,
+                label: "GravityZone",
+                sub: "Segurança Ativa",
+              },
+              {
+                Icon: IconProvimentoCnj,
+                tone: "accent" as const,
+                label: "Provimento CNJ",
+                sub: "Trilha Auditável",
+              },
+              {
+                Icon: IconBackupVault,
+                tone: "sky" as const,
+                label: "Backblaze & Zabbix",
+                sub: "SLA Contínuo",
+              },
             ].map((item) => (
-              <div key={item.label} className="squircle-card p-3.5">
-                <item.icon className="w-4 h-4 theme-accent-text mb-1.5" />
-                <div className="text-xs font-bold">{item.label}</div>
-                <div className="text-[11px] theme-text-muted">{item.sub}</div>
+              <div key={item.label} className="squircle-card p-4 flex items-center gap-3.5">
+                <SuperellipseTile size="sm" tone={item.tone}>
+                  <item.Icon className="w-5 h-5" />
+                </SuperellipseTile>
+                <div>
+                  <div className="text-xs font-bold">{item.label}</div>
+                  <div className="text-[11px] theme-text-muted">{item.sub}</div>
+                </div>
               </div>
             ))}
           </motion.div>
@@ -188,34 +230,23 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
               credencial Root autorizada no Google Workspace.
             </p>
 
-            <div className="flex flex-col items-center justify-center py-4 px-4 rounded-2xl theme-pill">
-              <div ref={googleBtnRef} className="min-h-[44px] flex items-center justify-center" />
-              {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setLoading(true);
-                    try {
-                      const data = await apiFetch<{ user: UserProfile }>("/api/v1/auth/dev-login", {
-                        method: "POST",
-                      });
-                      onSuccess(data.user);
-                    } catch (err) {
-                      setError(
-                        err instanceof Error ? err.message : "Erro ao entrar no modo local."
-                      );
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  className="w-full py-3 px-5 rounded-full theme-accent-bg font-bold text-sm transition cursor-pointer"
-                >
-                  Entrar no Ambiente Local (Modo Teste)
-                </button>
+            <div className="flex flex-col items-center justify-center gap-3 py-5 px-4 rounded-2xl theme-pill">
+              {clientId && (
+                <div ref={googleBtnRef} className="min-h-[44px] flex items-center justify-center" />
               )}
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleDevLogin}
+                className="w-full py-3 px-5 rounded-full theme-accent-bg font-bold text-sm transition cursor-pointer disabled:opacity-50"
+              >
+                Entrar no Ambiente Local (Modo Teste)
+              </button>
+
               {loading && (
-                <span className="mt-3 text-xs font-mono theme-accent-text animate-pulse">
-                  Validando credenciais Workspace...
+                <span className="mt-1 text-xs font-mono theme-accent-text animate-pulse">
+                  Validando credenciais...
                 </span>
               )}
             </div>
