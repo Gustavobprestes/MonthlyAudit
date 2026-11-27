@@ -319,7 +319,7 @@ async def collect_audit_preview(
     glpi_data, bd_data, zbx_data = await asyncio.gather(
         glpi.collect_client_audit(client_map.glpi_entity_id, month),
         bd.collect_security_audit(client_map.bitdefender_company_id),
-        zbx.collect_backup_audit(client_map.zabbix_host_slug),
+        zbx.collect_backup_audit(client_map.zabbix_host_slug, month),
     )
 
     provimento = glpi_data.pop("provimento_cnj", None)
@@ -347,6 +347,11 @@ async def collect_audit_preview(
             "endpoints_with_issues": bd_data.get("endpoints_with_issues", 0),
             "quarantine_items": bd_data.get("quarantine_items", 0),
             "security_health_percent": bd_data.get("security_health_percent", 100.0),
+            "total_seats": bd_data.get("total_seats", bd_data.get("total_endpoints", 0)),
+            "used_seats": bd_data.get("used_seats", bd_data.get("managed_endpoints", 0)),
+            "expiration_date": bd_data.get("expiration_date", "Não informada"),
+            "product_name": bd_data.get("product_name", "GravityZone"),
+            "endpoints": bd_data.get("endpoints") or [],
             "error": bd_data.get("error"),
         }
 

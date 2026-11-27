@@ -55,6 +55,12 @@ export interface MachineInventoryItem {
   last_sync: string;
 }
 
+export interface BitdefenderEndpointItem {
+  name: string;
+  ip: string;
+  status: string;
+}
+
 export interface AuditPayload {
   client_mapping_id: number;
   client_name: string;
@@ -94,6 +100,11 @@ export interface AuditPayload {
     endpoints_with_issues: number;
     quarantine_items: number;
     security_health_percent: number;
+    total_seats?: number;
+    used_seats?: number;
+    expiration_date?: string;
+    product_name?: string;
+    endpoints?: BitdefenderEndpointItem[];
     error?: string;
   } | null;
   backup_summary: {
@@ -104,9 +115,12 @@ export interface AuditPayload {
       status: string;
       is_healthy: boolean;
       sla_30d_percent: number;
+      ok_days?: number;
+      total_days?: number;
       last_check: string;
+      timeline?: { date: string; ok: boolean }[];
     }[];
-    disk_usage: { volume: string; used_percent: number }[];
+    disk_usage: { volume: string; used_percent: number; status?: string }[];
     analyst_note: string;
     error?: string;
   } | null;

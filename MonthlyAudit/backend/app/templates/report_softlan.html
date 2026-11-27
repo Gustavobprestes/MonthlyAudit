@@ -60,35 +60,47 @@
     padding: 18px 22px;
     border-radius: 10px;
     border-bottom: 4px solid #ff5a1f;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: table;
+    width: 100%;
+    box-sizing: border-box;
     margin-bottom: 16px;
   }
 
-  .brand-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 14px;
+  .header-left {
+    display: table-cell;
+    vertical-align: middle;
+  }
+
+  .logo-cell {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 18px;
+  }
+
+  .brand-text-cell {
+    display: inline-block;
+    vertical-align: middle;
   }
 
   .brand-title {
     font-size: 16pt;
     font-weight: 800;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     color: #ffffff;
     margin: 0;
   }
   .brand-title span { color: #ff5a1f; }
   .brand-sub {
     font-size: 7.5pt;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.18em;
     color: #94a3b8;
     text-transform: uppercase;
-    margin-top: 2px;
+    margin-top: 3px;
   }
 
   .meta-box {
+    display: table-cell;
+    vertical-align: middle;
     text-align: right;
     font-size: 8pt;
     color: #cbd5e1;
@@ -142,16 +154,16 @@
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 9px 12px;
+    padding: 9px 11px;
   }
   .kpi-label {
-    font-size: 7pt;
+    font-size: 6.8pt;
     text-transform: uppercase;
     color: #64748b;
     font-weight: 600;
   }
   .kpi-value {
-    font-size: 14pt;
+    font-size: 13pt;
     font-weight: 800;
     color: #0f172a;
     margin-top: 2px;
@@ -252,24 +264,34 @@
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: table;
+    width: 100%;
+    box-sizing: border-box;
     font-size: 7.2pt;
     color: #475569;
+  }
+  .integrity-left {
+    display: table-cell;
+    vertical-align: middle;
+  }
+  .integrity-right {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: right;
   }
 </style>
 </head>
 <body>
 
   <div class="header">
-    <div class="brand-wrapper">
-      <!-- Logotipo Oficial Softlan TI SVG -->
-      <svg width="42" height="42" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M52 8H92V24C92 40 79 52 63 52H36V38H63C71 38 77 32 77 24V22H52C34 22 22 34 22 50V56H8V48C8 24 27 8 52 8Z" fill="#FFFFFF"/>
-        <path d="M48 92H8V76C8 60 21 48 37 48H64V62H37C29 62 23 68 23 76V78H48C66 78 78 66 78 50V44H92V52C92 76 73 92 48 92Z" fill="#FF5A1F"/>
-      </svg>
-      <div>
+    <div class="header-left">
+      <div class="logo-cell">
+        <svg width="44" height="44" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M52 8H92V24C92 40 79 52 63 52H36V38H63C71 38 77 32 77 24V22H52C34 22 22 34 22 50V56H8V48C8 24 27 8 52 8Z" fill="#FFFFFF"/>
+          <path d="M48 92H8V76C8 60 21 48 37 48H64V62H37C29 62 23 68 23 76V78H48C66 78 78 66 78 50V44H92V52C92 76 73 92 48 92Z" fill="#FF5A1F"/>
+        </svg>
+      </div>
+      <div class="brand-text-cell">
         <div class="brand-title">SOFTLAN <span>TI</span></div>
         <div class="brand-sub">Soluções em Tecnologia • Auditoria Mensal</div>
       </div>
@@ -365,51 +387,108 @@
   {% endif %}
 
   {% if data.show_bitdefender and data.bitdefender_summary %}
-  <h2>Segurança de Endpoints & Proteção Cibernética (Bitdefender)</h2>
+  <h2>Segurança de Endpoints & Licenciamento (Bitdefender)</h2>
   <div class="kpi-grid">
     <div class="kpi-card">
-      <div class="kpi-label">Endpoints Gerenciados</div>
-      <div class="kpi-value">{{ data.bitdefender_summary.managed_endpoints }} / {{ data.bitdefender_summary.total_endpoints }}</div>
+      <div class="kpi-label">Licenças (Em Uso / Total)</div>
+      <div class="kpi-value">{{ data.bitdefender_summary.used_seats or data.bitdefender_summary.managed_endpoints }} / {{ data.bitdefender_summary.total_seats or data.bitdefender_summary.total_endpoints }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Validade da Licença</div>
+      <div class="kpi-value kpi-accent" style="font-size: 11pt;">{{ data.bitdefender_summary.expiration_date or 'Não informada' }}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Índice de Integridade</div>
-      <div class="kpi-value kpi-accent">{{ data.bitdefender_summary.security_health_percent }}%</div>
+      <div class="kpi-value">{{ data.bitdefender_summary.security_health_percent }}%</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Itens em Quarentena</div>
+      <div class="kpi-label">Quarentena</div>
       <div class="kpi-value">{{ data.bitdefender_summary.quarantine_items }}</div>
     </div>
   </div>
+
+  {% if data.bitdefender_summary.endpoints %}
+  <table class="data-table inv-table">
+    <thead>
+      <tr>
+        <th>Estação / Endpoint Protegido</th>
+        <th>Endereço IP</th>
+        <th class="col-narrow">Status EDR</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ep in data.bitdefender_summary.endpoints %}
+      <tr>
+        <td><strong>{{ ep.name }}</strong></td>
+        <td>{{ ep.ip }}</td>
+        <td><span class="badge-ok">{{ ep.status }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
   {% endif %}
 
-  {% if data.show_backups and data.backup_summary and data.backup_summary.active_channels %}
-  <h2>Continuidade Operacional & Auditoria de Backups</h2>
+ {% if data.show_backups and data.backup_summary %}
+  <h2>Continuidade Operacional & Auditoria de Backups (Backblaze B2 / Zabbix)</h2>
+  {% if data.backup_summary.active_channels %}
   <table class="data-table">
     <thead>
       <tr>
-        <th>Repositório / Camada de Cópia</th>
-        <th>Disponibilidade (30d)</th>
+        <th>Rotina / Camada de Cópia</th>
+        <th>SLA na Competência</th>
+        <th>Dias Funcionais</th>
         <th>Última Verificação</th>
-        <th>Status</th>
+        <th class="col-narrow">Status Atual</th>
       </tr>
     </thead>
     <tbody>
       {% for ch in data.backup_summary.active_channels %}
       <tr>
         <td><strong>{{ ch.channel }}</strong></td>
-        <td>{{ ch.sla_30d_percent }}%</td>
+        <td><strong>{{ ch.sla_30d_percent }}%</strong></td>
+        <td>{% if ch.total_days %}{{ ch.ok_days }} / {{ ch.total_days }} dias{% else %}-{% endif %}</td>
         <td>{{ ch.last_check }}</td>
         <td>
           {% if ch.is_healthy %}
-            <span class="badge-ok">{{ ch.status }}</span>
+            <span class="badge-ok">Funcional</span>
           {% else %}
-            <span class="badge-warn">{{ ch.status }}</span>
+            <span class="badge-warn">Com Falha</span>
           {% endif %}
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
+
+  {% if data.backup_summary.disk_usage %}
+  <table class="data-table inv-table">
+    <thead>
+      <tr>
+        <th>Ponto de Montagem / Repositório Monitorado</th>
+        <th class="col-narrow">Ocupação (%)</th>
+        <th class="col-narrow">Situação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in data.backup_summary.disk_usage %}
+      <tr>
+        <td><strong>{{ d.volume }}</strong></td>
+        <td><strong>{{ d.used_percent }}%</strong></td>
+        <td>
+          {% if d.used_percent >= 90 %}
+            <span class="badge-warn">{{ d.status }}</span>
+          {% else %}
+            <span class="badge-ok">{{ d.status }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
   {% if data.backup_summary.analyst_note %}
   <div class="note-box">
     <strong>Parecer Técnico de Continuidade:</strong> {{ data.backup_summary.analyst_note }}
@@ -449,11 +528,11 @@
   {% endif %}
 
   <div class="integrity-footer">
-    <div>
+    <div class="integrity-left">
       <strong>SOFTLAN TI — Soluções em Tecnologia</strong><br />
       Responsável Técnico: <strong>{{ generated_by }}</strong> • Hash SHA-256: <code>{{ doc_hash }}</code>
     </div>
-    <div>
+    <div class="integrity-right">
       <svg width="26" height="26" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M52 8H92V24C92 40 79 52 63 52H36V38H63C71 38 77 32 77 24V22H52C34 22 22 34 22 50V56H8V48C8 24 27 8 52 8Z" fill="#0F172A"/>
         <path d="M48 92H8V76C8 60 21 48 37 48H64V62H37C29 62 23 68 23 76V78H48C66 78 78 66 78 50V44H92V52C92 76 73 92 48 92Z" fill="#FF5A1F"/>

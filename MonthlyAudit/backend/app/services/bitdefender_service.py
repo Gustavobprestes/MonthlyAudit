@@ -1,7 +1,21 @@
 import base64
+from datetime import datetime
 from typing import Any
 import httpx
 from app.core.config import settings
+
+
+def _format_bd_date(raw_date: Any) -> str:
+    if not raw_date:
+        return "Não informada"
+    text = str(raw_date).strip()
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            dt = datetime.strptime(text[:19], fmt[: len(text[:19])])
+            return dt.strftime("%d/%m/%Y")
+        except ValueError:
+            continue
+    return text[:10]
 
 
 class BitdefenderService:
@@ -59,7 +73,6 @@ class BitdefenderService:
                 page += 1
             return sorted(companies, key=lambda x: x["name"].lower())
         except Exception:
-            # Fallback caso a chave seja de conta única (Enterprise sem sub-empresas)
             try:
                 inv = await self._rpc(
                     "network",
@@ -75,8 +88,67 @@ class BitdefenderService:
             except Exception:
                 return []
 
+    async def _fetch_license_details(self, company_id: str) -> dict[str, Any]:
+        """Obtém total de assentos/licenças contratadas e data de expiração da empresa."""
+        total_seats = 0
+        used_seats = 0
+        expiration_date = "Não informada"
+        product_name = "GravityZone Business Security"
+
+        # 1. Tenta via companies/getCompanyDetails
+        try:
+            details = await self._rpc("companies", "getCompanyDetails", {"companyId": company_id})
+            if isinstance(details, dict):
+                lic = details.get("license") or details.get("subscription") or {}
+                if isinstance(lic, dict):
+                    total_seats = int(
+                        lic.get("totalSlots")
+                        or lic.get("slots")
+                        or lic.get("seats")
+                        or 0
+                    )
+                    used_seats = int(lic.get("usedSlots") or lic.get("usedSeats") or 0)
+                    raw_exp = lic.get("expirationDate") or lic.get("expiresAt") or lic.get("validUntil")
+                    if raw_exp:
+                        expiration_date = _format_bd_date(raw_exp)
+                    if lic.get("productName"):
+                        product_name = str(lic["productName"])
+        except Exception:
+            pass
+
+        # 2. Complementa ou faz fallback via licensing/getLicenseInfo
+        if total_seats == 0 or expiration_date == "Não informada":
+            try:
+                lic_info = await self._rpc("licensing", "getLicenseInfo", {"companyId": company_id})
+                if isinstance(lic_info, dict):
+                    if total_seats == 0:
+                        total_seats = int(
+                            lic_info.get("totalSlots")
+                            or lic_info.get("ownSlots")
+                            or lic_info.get("seats")
+                            or 0
+                        )
+                    if used_seats == 0:
+                        used_seats = int(lic_info.get("usedSlots") or 0)
+                    raw_exp = (
+                        lic_info.get("expirationDate")
+                        or lic_info.get("subscriptionExpirationDate")
+                        or lic_info.get("validUntil")
+                    )
+                    if raw_exp and expiration_date == "Não informada":
+                        expiration_date = _format_bd_date(raw_exp)
+            except Exception:
+                pass
+
+        return {
+            "total_seats": total_seats,
+            "used_seats": used_seats,
+            "expiration_date": expiration_date,
+            "product_name": product_name,
+        }
+
     async def collect_security_audit(self, company_id: str | None) -> dict[str, Any]:
-        """Coleta endpoints gerenciados, saúde de proteção e quarentena da empresa vinculada."""
+        """Coleta endpoints gerenciados, nomes, licenças, validade e quarentena."""
         if not self.api_key or not company_id:
             return {}
 
@@ -84,7 +156,8 @@ class BitdefenderService:
         page = 1
 
         try:
-            # 1. Busca direta por parentId (pasta raiz da empresa) e filtros de managed
+            license_meta = await self._fetch_license_details(company_id)
+
             while page <= 5:
                 params: dict[str, Any] = {
                     "parentId": company_id,
@@ -107,7 +180,6 @@ class BitdefenderService:
                     break
                 page += 1
 
-            # 2. Caso os endpoints estejam dentro de subgrupos da empresa, varre getNetworkInventoryItems
             if not all_endpoints:
                 inv_res = await self._rpc(
                     "network",
@@ -125,6 +197,7 @@ class BitdefenderService:
             managed_count = 0
             clean_count = 0
             infected_or_issue = 0
+            endpoint_rows: list[dict[str, str]] = []
 
             for ep in all_endpoints:
                 is_managed = bool(ep.get("isManaged", True))
@@ -133,10 +206,23 @@ class BitdefenderService:
                 state = str(ep.get("state", "")).lower()
                 malware = ep.get("malwareStatus", {})
                 has_malware = bool(malware.get("infected")) if isinstance(malware, dict) else False
-                if not has_malware and state in ("", "ok", "clean", "protected", "0", "online"):
+                is_clean = not has_malware and state in ("", "ok", "clean", "protected", "0", "online")
+                if is_clean:
                     clean_count += 1
                 else:
                     infected_or_issue += 1
+
+                ep_name = str(ep.get("name") or ep.get("label") or "Endpoint")
+                ep_ip = str(ep.get("ip") or ep.get("ipAddress") or "-")
+                endpoint_rows.append(
+                    {
+                        "name": ep_name,
+                        "ip": ep_ip,
+                        "status": "Protegido" if is_clean else "Verificar",
+                    }
+                )
+
+            endpoint_rows.sort(key=lambda x: x["name"].lower())
 
             quarantine_count = 0
             for q_endpoint in ("quarantine/computers", "quarantine"):
@@ -155,6 +241,8 @@ class BitdefenderService:
             health_score = (
                 round((clean_count / total_endpoints) * 100, 1) if total_endpoints > 0 else 100.0
             )
+            total_seats = license_meta["total_seats"] or total_endpoints
+            used_seats = license_meta["used_seats"] or managed_count
 
             return {
                 "total_endpoints": total_endpoints,
@@ -163,6 +251,11 @@ class BitdefenderService:
                 "endpoints_with_issues": infected_or_issue,
                 "quarantine_items": quarantine_count,
                 "security_health_percent": health_score,
+                "total_seats": total_seats,
+                "used_seats": used_seats,
+                "expiration_date": license_meta["expiration_date"],
+                "product_name": license_meta["product_name"],
+                "endpoints": endpoint_rows,
             }
         except Exception as exc:
             return {
@@ -172,5 +265,10 @@ class BitdefenderService:
                 "endpoints_with_issues": 0,
                 "quarantine_items": 0,
                 "security_health_percent": 0.0,
+                "total_seats": 0,
+                "used_seats": 0,
+                "expiration_date": "Não informada",
+                "product_name": "GravityZone",
+                "endpoints": [],
                 "error": str(exc),
             }

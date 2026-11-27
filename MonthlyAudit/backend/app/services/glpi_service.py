@@ -1,11 +1,30 @@
 import asyncio
 import calendar
+import html
 import re
 from collections import Counter
 from typing import Any
 import bleach
 import httpx
 from app.core.config import settings
+
+
+def _strip_all_html_and_css(raw_content: str) -> str:
+    """Desescapa entidades HTML múltiplas vezes e remove todas as tags/estilos."""
+    text = raw_content
+    for _ in range(3):
+        unescaped = html.unescape(text)
+        if unescaped == text:
+            break
+        text = unescaped
+    # Substitui quebras HTML por nova linha antes de limpar
+    text = re.sub(r"<br\s*/?>|</p>|</div>|</li>", "\n", text, flags=re.IGNORECASE)
+    cleaned = bleach.clean(text, tags=[], strip=True)
+    # Remove eventuais resquícios de entidades numéricas ou espaços excessivos
+    cleaned = html.unescape(cleaned)
+    lines = [re.sub(r"\s+", " ", line).strip() for line in cleaned.splitlines()]
+    non_empty = [line for line in lines if line]
+    return non_empty[0][:160] if non_empty else ""
 
 
 class GLPIService:
@@ -66,13 +85,13 @@ class GLPIService:
         comp: dict[str, Any],
         sem: asyncio.Semaphore,
     ) -> dict[str, str]:
-        """Coleta CPU, Memória RAM, Placa de Vídeo (GPU), Sistema Operacional e Antivírus de cada máquina."""
+        """Coleta CPU, Memória RAM, Placa de Vídeo (GPU), Sistema Operacional e Antivírus."""
         comp_id = comp.get("id")
         comp_name = str(comp.get("name") or f"ID-{comp_id}")
         last_sync = str(comp.get("date_mod") or comp.get("last_inventory_update") or "-")
 
         async with sem:
-            # 1. Sistema Operacional
+            # 1. Sistema Operacional (Versão do Windows / Linux)
             os_name = "Não identificado"
             try:
                 os_resp = await client.get(
@@ -83,7 +102,12 @@ class GLPIService:
                 if os_resp.status_code == 200:
                     os_list = os_resp.json()
                     if isinstance(os_list, list) and os_list:
-                        os_name = str(os_list[0].get("operatingsystems_id") or os_name)
+                        base_os = str(os_list[0].get("operatingsystems_id") or "").strip()
+                        ver_os = str(os_list[0].get("operatingsystemversions_id") or "").strip()
+                        if base_os and ver_os and ver_os not in base_os:
+                            os_name = f"{base_os} ({ver_os})"
+                        elif base_os:
+                            os_name = base_os
             except Exception:
                 pass
 
@@ -104,7 +128,7 @@ class GLPIService:
             except Exception:
                 pass
 
-            # 3. Memória RAM (Soma todos os pentes em MB -> GB)
+            # 3. Memória RAM (Soma todos os módulos em MB -> GB)
             ram_label = "Não informada"
             try:
                 ram_resp = await client.get(
@@ -180,7 +204,7 @@ class GLPIService:
             }
 
     async def collect_client_audit(self, entity_id: int, reference_month: str) -> dict[str, Any]:
-        """Coleta volumetria mensal, incidências, Provimento CNJ e inventário de hardware/antivírus."""
+        """Coleta volumetria mensal, incidências, Provimento CNJ e inventário recursivo."""
         if not self.app_token or not self.user_token:
             return {
                 "total_opened": 0,
@@ -197,18 +221,18 @@ class GLPIService:
         start_dt = f"{year:04d}-{month:02d}-01 00:00:00"
         end_dt = f"{year:04d}-{month:02d}-{last_day:02d} 23:59:59"
 
-        async with httpx.AsyncClient(timeout=35.0) as client:
+        async with httpx.AsyncClient(timeout=40.0) as client:
             token = await self._init_session(client)
             try:
                 headers = {"App-Token": self.app_token, "Session-Token": token}
 
-                # 1. Chamados da entidade
+                # 1. Chamados da entidade e subentidades (searchtype=under)
                 tickets_resp = await client.get(
                     f"{self.base_url}/search/Ticket",
                     headers=headers,
                     params={
                         "criteria[0][field]": "80",
-                        "criteria[0][searchtype]": "equals",
+                        "criteria[0][searchtype]": "under",
                         "criteria[0][value]": str(entity_id),
                         "forcedisplay[0]": "1",
                         "forcedisplay[1]": "2",
@@ -258,7 +282,7 @@ class GLPIService:
                         else:
                             in_progress_count += 1
 
-                # 2. Tarefas do Projeto Provimento CNJ (TicketTask)
+                # 2. Tarefas do Projeto Provimento CNJ (com sanitização dupla de HTML/CSS)
                 provimento_data = None
                 if implantacao_ticket:
                     ticket_id = int(implantacao_ticket["2"])
@@ -272,19 +296,16 @@ class GLPIService:
                     for idx, task in enumerate(tasks_raw, start=1):
                         if not isinstance(task, dict):
                             continue
-                        clean_text = bleach.clean(
-                            str(task.get("content", "")), tags=[], strip=True
-                        ).strip()
-                        first_line = (
-                            clean_text.splitlines()[0][:140] if clean_text else f"Etapa #{idx}"
-                        )
+                        clean_title = _strip_all_html_and_css(str(task.get("content", "")))
+                        if not clean_title:
+                            clean_title = f"Etapa #{idx}"
                         is_done = int(task.get("state", 0)) == 2
                         if is_done:
                             done_tasks += 1
                         parsed_tasks.append(
                             {
                                 "id": int(task.get("id", idx)),
-                                "title": first_line,
+                                "title": clean_title,
                                 "completed": is_done,
                                 "date": str(task.get("date", "")),
                             }
@@ -302,26 +323,54 @@ class GLPIService:
                         "tasks": parsed_tasks,
                     }
 
-                # 3. Inventário Completo de Máquinas via GLPI Agent (coleta paralela segura)
-                comp_resp = await client.get(
-                    f"{self.base_url}/Computer",
+                # 3. Busca Recursiva de Computadores na Entidade e Subentidades (/search/Computer)
+                entity_computers: list[dict[str, Any]] = []
+                search_comp_resp = await client.get(
+                    f"{self.base_url}/search/Computer",
                     headers=headers,
-                    params={"range": "0-250", "only_id": "false"},
+                    params={
+                        "criteria[0][field]": "80",
+                        "criteria[0][searchtype]": "under",
+                        "criteria[0][value]": str(entity_id),
+                        "forcedisplay[0]": "1",   # Nome
+                        "forcedisplay[1]": "2",   # ID
+                        "forcedisplay[2]": "19",  # Última modificação
+                        "range": "0-200",
+                    },
                 )
-                computers = comp_resp.json() if comp_resp.status_code == 200 else []
-                entity_computers = [
-                    c
-                    for c in computers
-                    if isinstance(c, dict)
-                    and int(c.get("entities_id", -1)) == entity_id
-                    and int(c.get("is_deleted", 0)) == 0
-                ]
+                if search_comp_resp.status_code == 200:
+                    search_rows = search_comp_resp.json().get("data", [])
+                    for row in search_rows:
+                        if isinstance(row, dict) and row.get("2"):
+                            entity_computers.append(
+                                {
+                                    "id": int(row["2"]),
+                                    "name": str(row.get("1") or f"PC-{row['2']}"),
+                                    "date_mod": str(row.get("19") or "-"),
+                                }
+                            )
+
+                # Fallback caso /search/Computer retorne vazio
+                if not entity_computers:
+                    comp_resp = await client.get(
+                        f"{self.base_url}/Computer",
+                        headers=headers,
+                        params={"range": "0-1000", "only_id": "false"},
+                    )
+                    computers = comp_resp.json() if comp_resp.status_code == 200 else []
+                    entity_computers = [
+                        c
+                        for c in computers
+                        if isinstance(c, dict)
+                        and int(c.get("entities_id", -1)) == entity_id
+                        and int(c.get("is_deleted", 0)) == 0
+                    ]
 
                 sem = asyncio.Semaphore(10)
                 machines = await asyncio.gather(
                     *[
                         self._fetch_machine_hardware(client, headers, comp, sem)
-                        for comp in entity_computers[:35]
+                        for comp in entity_computers[:45]
                     ]
                 )
                 machines_sorted = sorted(machines, key=lambda m: m["name"].lower())
@@ -340,7 +389,7 @@ class GLPIService:
                         "total_machines": len(entity_computers),
                         "machines": machines_sorted,
                         "note": (
-                            f"{len(entity_computers)} ativos inventariados via GLPI Agent com especificações de hardware e antivírus."
+                            f"{len(entity_computers)} ativos inventariados via GLPI Agent com especificações de CPU, RAM, GPU, SO e antivírus."
                             if entity_computers
                             else "Parque em fase de implantação do agente de inventário automatizado."
                         ),

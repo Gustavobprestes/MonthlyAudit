@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { MonthYearPicker } from "../components/MonthYearPicker";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileDown,
@@ -362,7 +363,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
             initial={{ opacity: 0.55, scale: 0.2 }}
             animate={{ opacity: 0, scale: 2.6 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 1.35, ease: [0.16, 1, 0.3, 1] }}
             style={{
               background:
                 "radial-gradient(circle, var(--accent-glow) 0%, transparent 70%)",
@@ -582,12 +583,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       <label className="block text-[11px] font-mono uppercase tracking-wider theme-text-muted mb-2">
                         Competência (Mês/Ano)
                       </label>
-                      <input
-                        type="month"
-                        value={referenceMonth}
-                        onChange={(e) => setReferenceMonth(e.target.value)}
-                        className="w-full theme-input rounded-xl px-4 py-2 text-sm"
-                      />
+                      <MonthYearPicker value={referenceMonth} onChange={setReferenceMonth} />
                     </div>
 
                     <div className="md:col-span-4 flex gap-3">
@@ -734,17 +730,25 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
 
                           <div className="squircle-card p-5">
                             <div className="flex items-center justify-between text-xs theme-text-muted mb-2">
-                              <span>GRAVITYZONE HEALTH</span>
+                              <span>BITDEFENDER LICENÇAS</span>
                               <Shield className="w-4 h-4 text-emerald-500" />
                             </div>
                             <div className="text-3xl font-black text-emerald-500">
                               {auditData.bitdefender_summary
-                                ? `${auditData.bitdefender_summary.security_health_percent ?? 0}%`
+                                ? `${
+                                    auditData.bitdefender_summary.used_seats ??
+                                    auditData.bitdefender_summary.managed_endpoints
+                                  } / ${
+                                    auditData.bitdefender_summary.total_seats ??
+                                    auditData.bitdefender_summary.total_endpoints
+                                  }`
                                 : "N/A"}
                             </div>
                             <div className="text-[11px] theme-text-muted mt-1">
                               {auditData.bitdefender_summary
-                                ? `${auditData.bitdefender_summary.managed_endpoints ?? 0} endpoints gerenciados`
+                                ? `Validade: ${
+                                    auditData.bitdefender_summary.expiration_date || "Não informada"
+                                  }`
                                 : "Empresa não vinculada"}
                             </div>
                           </div>
@@ -766,6 +770,96 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                             </div>
                           </div>
                         </div>
+
+                        {/* Painel NOC Backups & Disco (B2Client X-Ray) */}
+                        {auditData.show_backups &&
+                          auditData.backup_summary &&
+                          backupChannels.length > 0 && (
+                            <div className="squircle-card p-6 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <HardDrive className="w-4 h-4 theme-accent-text" />
+                                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                                    Telemetria de Backups & Continuidade ({auditData.backup_summary.host_slug})
+                                  </h3>
+                                </div>
+                                <span className="text-xs font-mono theme-accent-text font-bold">
+                                  SLA Competência: {auditData.backup_summary.overall_sla_percent}%
+                                </span>
+                              </div>
+
+                              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {backupChannels.map((ch) => (
+                                  <div
+                                    key={ch.channel}
+                                    className={`p-3.5 rounded-xl border ${
+                                      ch.is_healthy
+                                        ? "bg-emerald-500/15 border-emerald-500/35"
+                                        : "bg-red-500/15 border-red-500/35"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-xs font-bold truncate">{ch.channel}</span>
+                                      <span
+                                        className={`text-[11px] font-extrabold uppercase ${
+                                          ch.is_healthy ? "text-emerald-500" : "text-red-500"
+                                        }`}
+                                      >
+                                        {ch.status}
+                                      </span>
+                                    </div>
+                                    <div className="mt-1.5 flex items-center justify-between text-[11px] font-mono theme-text-muted">
+                                      <span>SLA: {ch.sla_30d_percent}%</span>
+                                      <span>{ch.last_check}</span>
+                                    </div>
+                                    {ch.timeline && ch.timeline.length > 0 && (
+                                      <div className="mt-2.5 flex items-center gap-1">
+                                        {ch.timeline.map((t) => (
+                                          <span
+                                            key={t.date}
+                                            title={`${t.date}: ${t.ok ? "Funcional" : "Com Falha"}`}
+                                            className={`h-2 flex-1 rounded-sm ${
+                                              t.ok ? "bg-emerald-500" : "bg-red-500"
+                                            }`}
+                                          />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+
+                              {(auditData.backup_summary.disk_usage?.length ?? 0) > 0 && (
+                                <div className="pt-3 border-t border-current/10 space-y-2">
+                                  <div className="text-[11px] font-mono uppercase tracking-wider theme-text-muted">
+                                    Ocupação de Disco Monitorada (%)
+                                  </div>
+                                  <div className="grid sm:grid-cols-2 gap-2.5">
+                                    {auditData.backup_summary.disk_usage.map((d) => (
+                                      <div key={d.volume} className="p-2.5 rounded-xl theme-pill space-y-1.5">
+                                        <div className="flex justify-between text-xs font-semibold">
+                                          <span className="truncate pr-2">{d.volume}</span>
+                                          <span className="font-mono">{d.used_percent}%</span>
+                                        </div>
+                                        <div className="w-full h-1.5 rounded-full bg-current/10 overflow-hidden">
+                                          <div
+                                            style={{ width: `${Math.min(d.used_percent, 100)}%` }}
+                                            className={`h-full rounded-full ${
+                                              d.used_percent >= 90
+                                                ? "bg-red-500"
+                                                : d.used_percent >= 80
+                                                  ? "bg-amber-500"
+                                                  : "bg-emerald-500"
+                                            }`}
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                         {auditData.show_provimento_cnj && auditData.provimento_cnj?.has_project && (
                           <div className="squircle-card p-6 space-y-4">

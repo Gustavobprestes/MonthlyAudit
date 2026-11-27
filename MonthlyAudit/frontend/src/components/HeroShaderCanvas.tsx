@@ -184,9 +184,9 @@ export function HeroShaderCanvas({ theme = "softlan" }: { theme?: AppTheme }) {
       targetGlow.setRGB(...pal.glow);
       targetLine.setRGB(...pal.line);
 
-      uniforms.uBaseColor.value.lerp(targetBase, 0.08);
-      uniforms.uGlowColor.value.lerp(targetGlow, 0.08);
-      uniforms.uLineColor.value.lerp(targetLine, 0.08);
+      uniforms.uBaseColor.value.lerp(targetBase, 0.025);
+      uniforms.uGlowColor.value.lerp(targetGlow, 0.025);
+      uniforms.uLineColor.value.lerp(targetLine, 0.025);
 
       renderer.render(scene, camera);
       animId = requestAnimationFrame(renderLoop);
